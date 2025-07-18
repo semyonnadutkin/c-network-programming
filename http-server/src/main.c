@@ -212,7 +212,7 @@ int http_server_handle_communication(const SOCKET serv)
 {
         if (!ISVALIDSOCK(serv)) {
 #ifdef _CPSOCKS_DEBUG_
-                _CPSOCKS_ERROR("Invalid fd passed\n"
+                _CPSOCKS_ERROR("Invalid server fd\n"
                         "\tFunction: http_server_handle_communication()");
 #endif // _CPSOCKS_DEBUG_
                 return EXIT_FAILURE;
@@ -222,18 +222,14 @@ int http_server_handle_communication(const SOCKET serv)
         FD_ZERO(&master);
         FD_SET(serv, &master);
         while (1) {
-                // Use select() instead of fork()
-#if defined(_WIN32) || !defined(HTTP_SERVER_USE_FORK)
-
-#else
-
-#endif
+                
         }
 
         return EXIT_SUCCESS;
 }
 
 
+// Starts a HTTP server on the provided port
 int http_server(const char* port)
 {
         sockets_startup();
