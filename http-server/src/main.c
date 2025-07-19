@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <sys/select.h>
 #define _CPSOCKS_DEBUG_ // to make debug logs
 #include "headers/crossplatform_sockets.h"
 #include <stdio.h>
@@ -208,6 +209,24 @@ SOCKET start_server(struct addrinfo* addr, const int max_conn)
 }
 
 
+struct serverinfo {
+        SOCKET serv;
+
+        SOCKET clients[MAX_CONN];
+        char* sdbs[MAX_CONN];
+        char* rvbs[MAX_CONN];
+
+        fd_set readfds;
+        fd_set writefds;
+};
+
+
+int initialize_serverinfo(struct serverinfo* sinfo, const SOCKET serv)
+{
+
+}
+
+
 int http_server_handle_communication(const SOCKET serv)
 {
         if (!ISVALIDSOCK(serv)) {
@@ -221,11 +240,29 @@ int http_server_handle_communication(const SOCKET serv)
         fd_set master = { 0 };
         FD_ZERO(&master);
         FD_SET(serv, &master);
-        while (1) {
+
+        SOCKET max_fd = serv;
+        struct serverinfo sinfo = { 0 };
+        if (initialize_serverinfo(&sinfo, serv)) {
                 
         }
 
+        while (1) {
+                fd_set readfds = master;
+                fd_set writefds = master;
+
+                if (select(max_fd, &readfds, &writefds, NULL, NULL) <= 0) {
+#ifdef _CPSOCKS_DEBUG_
+                        PSOCKERROR("select() failed");
+#endif
+                        goto out_failure_serverinfo_cleanup;
+                }
+        }
+
         return EXIT_SUCCESS;
+
+out_failure_serverinfo_cleanup:
+        return EXIT_FAILURE;
 }
 
 
@@ -238,14 +275,14 @@ int http_server(const char* port)
         struct addrinfo* addr = configure_address(NULL,
             port, AF_INET6, SOCK_STREAM, AI_PASSIVE);
         if (!addr) {
-                goto out_cleanup_failure;
+                goto out_failure_sockets_cleanup;
         }
 
         // Create a socket
         SOCKET serv = start_server(addr, MAX_CONN);
         freeaddrinfo(addr);
         if (!ISVALIDSOCK(serv)) {
-                goto out_cleanup_failure;
+                goto out_failure_sockets_cleanup;
         }
 
         // Run the server
@@ -254,12 +291,12 @@ int http_server(const char* port)
 #ifdef _CPSOCKS_DEBUG_
                 _CPSOCKS_ERROR("Could not run the server");
 #endif // _CPSOCKS_DEBUG_
-                goto out_cleanup_failure;
+                goto out_failure_sockets_cleanup;
         }
 
         return sockets_cleanup();
 
-out_cleanup_failure:
+out_failure_sockets_cleanup:
         sockets_cleanup();
         return EXIT_FAILURE;
 }
