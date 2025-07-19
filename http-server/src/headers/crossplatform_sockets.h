@@ -1,3 +1,4 @@
+#pragma once
 
 
 
@@ -63,7 +64,7 @@
         #define ISVALIDSOCK(s) ((s) >= 0)       // checks the socket
         #define GETSOCKERRNO() (errno)          // gets last error
 
-        // Not to use "int" on WinSock2
+        // Not to use "int" on Windows
         typedef int SOCKET;
 
 #endif // !_WIN32
