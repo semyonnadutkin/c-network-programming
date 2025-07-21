@@ -34,6 +34,45 @@
 
 
 /*
+ * LOGGING FUNCTIONALITY
+ */
+
+
+
+#include <stdio.h>      // to print logs to console
+#include <stdlib.h>     // to exit with "EXIT_FAILURE"
+
+// Prints the message and the last socket error to "stderr"
+#define PSOCKERROR(msg)                 \
+        fprintf(stderr, "%s: %d\n", msg, GETSOCKERRNO())
+
+// Prints the message and the last socket error to "stderr"
+// and terminates the program (exit code: "EXIT_FAILURE")
+#define FATALSOCKERROR(msg)             \
+        do {                            \
+                PSOCKERROR(msg);        \
+                exit(EXIT_FAILURE);     \
+        } while (0)
+
+// Prints the error message "stderr"
+#define _CPSOCKS_ERROR(msg)             \
+        fprintf(stderr, "%s\n", msg)
+
+// Prints the error message to "stderr"
+// and terminates the program (exit code: "EXIT_FAILURE")
+#define _CPSOCKS_FATALERROR(msg)        \
+        do {                            \
+                fprintf(stderr, msg);   \
+                exit(EXIT_FAILURE);     \
+        } while (0)
+
+// Logs a message to stdout
+#define _CPSOCKS_LOG(msg)               \
+        fprintf(stdout, "%s\n", msg)
+
+
+
+/*
  * CROSSPLATFORM SETTINGS
  */
 
@@ -68,36 +107,3 @@
         typedef int SOCKET;
 
 #endif // !_WIN32
-
-
-
-// Debug defines
-#ifdef _CPSOCKS_DEBUG_
-        #include <stdio.h>      // to print logs to console
-        #include <stdlib.h>     // to exit with "EXIT_FAILURE"
-
-        // Prints the message and the last socket error to "stderr"
-        #define PSOCKERROR(msg)                 \
-                fprintf(stderr, "%s: %d\n", msg, GETSOCKERRNO())
-
-        // Prints the message and the last socket error to "stderr"
-        // and terminates the program (exit code: "EXIT_FAILURE")
-        #define FATALSOCKERROR(msg)             \
-                do {                            \
-                        PSOCKERROR(msg);        \
-                        exit(EXIT_FAILURE);     \
-                } while (0)
-
-        // Prints the error message "stderr"
-        #define _CPSOCKS_ERROR(msg)             \
-                fprintf(stderr, "%s\n", msg)
-
-        // Prints the error message to "stderr"
-        // and terminates the program (exit code: "EXIT_FAILURE")
-        #define _CPSOCKS_FATALERROR(msg)        \
-                do {                            \
-                        fprintf(stderr, msg);   \
-                        exit(EXIT_FAILURE);     \
-                } while (0)
-
-#endif // _CPSOCKS_DEBUG_

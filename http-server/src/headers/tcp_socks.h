@@ -75,40 +75,40 @@ struct serverinfo {
 
 // Initializes struct strinfo
 // Sets all parameters to zero
-int initialize_strinfo(struct strinfo* strinf);
+void initialize_strinfo(struct strinfo* strinf);
 
 
 // Frees the buffer, sets the default values
-int cleanup_strinfo(struct strinfo* strinf);
+void cleanup_strinfo(struct strinfo* strinf);
 
 
 // Initializes struct clientinfo
 // Sets "client" to "INVALID_SOCKET",
 // initalizes the related strinfo structures
-int initialize_clientinfo(struct clientinfo* cinfo);
+void initialize_clientinfo(struct clientinfo* cinfo);
 
 
 // Closes the fd, cleans up the related strinfo structures
-int cleanup_clientinfo(struct clientinfo* cinfo);
+void cleanup_clientinfo(struct clientinfo* cinfo);
 
 
 // Initializes server and max fds with "serv",
 // initializes the related clientinfo structures
-int initialize_serverinfo(struct serverinfo* sinfo, const SOCKET serv);
+void initialize_serverinfo(struct serverinfo* sinfo, const SOCKET serv);
 
 
 // Closes the server fd,
 // cleans up the related clientinfo structures
-int cleanup_serverinfo(struct serverinfo* sinfo);
+void cleanup_serverinfo(struct serverinfo* sinfo);
 
 
 // Transforms a serverinfo structure to an fd_set containing
 // connected clients' fds and the server fd
-int sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res);
+void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res);
 
 
 // Handles clients' connections
-int server_handle_clients(struct serverinfo* sinfo,
+void server_handle_clients(struct serverinfo* sinfo,
         const fd_set readfds,
         const fd_set writefds,
         void (*on_read_set)(struct serverinfo* sinfo, const SOCKET client),
