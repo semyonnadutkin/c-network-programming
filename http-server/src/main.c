@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h> // to parse HTTP requests
 #include "headers/crossplatform_sockets.h"
 #include "headers/sockshelp.h"
@@ -24,11 +25,53 @@ struct http_request {
 };
 
 
-struct http_request parse_http_request()
+// Frees the http_request structure
+void free_http_request(struct http_request* req)
+{
+        if (req->method) free(req->method);
+        if (req->url) free(req->url);
+        if (req->conn) free(req->conn);
+        if (req->ctype) free(req->ctype);
+        if (req->content) free(req->content);
+
+        req->method = NULL;
+        req->url = NULL;
+        req->conn = NULL;
+        req->ctype = NULL;
+        req->content = NULL;
+        req->clen = 0;
+}
+
+
+struct http_request parse_http_request(const char* const rbuf)
 {
         struct http_request req = { 0 };
 
+        
+
         return req;
+}
+
+
+int execute_http_request(struct http_request req, char** resp)
+{
+        return EXIT_SUCCESS;
+}
+
+
+// Moves a part after "\r\n\r\n" to the beginning
+int move_http_request(struct strinfo* reqstr)
+{
+        char* end = strstr(reqstr->buf, "\r\n\r\n");
+        if (!end) return EXIT_FAILURE;
+
+        end += 4; // skip "\r\n\r\n"
+
+        size_t len = strlen(end); // length of the new request
+        memmove(reqstr->buf, end, len + 1); // move with '\0'
+        reqstr->len = len;
+        
+        return EXIT_SUCCESS;
 }
 
 
@@ -98,7 +141,7 @@ int drop_client(struct serverinfo* sinfo, const SOCKET client)
 
 
 // Called when a client's fd is set for a read operation
-void scan_http_request(struct serverinfo* sinfo, const SOCKET client)
+void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
 {
         for (size_t i = 0; i < MAX_CONN; ++i) {
                 struct clientinfo* cinfo = &(sinfo->clients[i]);
@@ -107,7 +150,8 @@ void scan_http_request(struct serverinfo* sinfo, const SOCKET client)
                 if (!cinfo->rvstr.buf) { // allocate memory
                         int amx_res = allocate_max(&(cinfo->rvstr.buf),
                                 MIN_NETBUF_LEN, MAX_NETBUF_LEN);
-                        if (amx_res) return;
+                        if (amx_res <= 0) return; // failed to allocate memory
+                        cinfo->rvstr.sz = (size_t) amx_res;
                 }
 
                 if (cinfo->rvstr.sz < 1) return; // check for room for '\0'
@@ -121,8 +165,21 @@ void scan_http_request(struct serverinfo* sinfo, const SOCKET client)
 
                 cinfo->rvstr.len += (size_t) recvd;
                 cinfo->rvstr.buf[cinfo->rvstr.len] = '\0'; // for strstr()
+
+                // Check if the request was fully scanned
                 if (strstr(cinfo->rvstr.buf, "\r\n\r\n")) {
-                        
+                        struct http_request req
+                                = parse_http_request(cinfo->rvstr.buf);
+
+                        // Write the execution result to send string
+                        int resp_sz = execute_http_request(req,
+                                &(cinfo->sdstr.buf));
+                        if (resp_sz <= 0) return;
+
+                        cinfo->sdstr.len = (size_t) resp_sz;
+
+                        // Move to a new request
+                        move_http_request(&(cinfo->rvstr));
                 }
         }
 
@@ -134,7 +191,7 @@ void scan_http_request(struct serverinfo* sinfo, const SOCKET client)
 // Called when a client's fd is set for a write operation
 void on_client_write(struct serverinfo* sinfo, const SOCKET client)
 {
-
+        
 }
 
 
@@ -146,7 +203,7 @@ int http_server_handle_communication(const SOCKET serv)
         // Start accepting connections
         while (1) {
                 int scfds_res = server_check_fds(&sinfo, server_accept_client,
-                        scan_http_request, on_client_write);
+                        handle_http_input, on_client_write);
                 if (scfds_res) {
                         _CPSOCKS_ERROR("server_check_fds() failed");
                         goto out_failure_cleanup_serverinfo;
