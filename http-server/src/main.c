@@ -1,10 +1,93 @@
+#include "headers/crossplatform_sockets.h"
 #include "headers/sockshelp.h"
 #include "headers/http_parsers.h"
+#include "headers/tcp_socks.h"
+#include <stdlib.h>
 
 
-int execute_http_request(struct http_request req, char** resp)
+/*
+ * Executes a HTTP request 
+ *
+ * Returns:
+ *      - Success: HTTP status code
+ *      - Failure: -EXIT_FAILURE
+ */
+enum http_code execute_http_request(struct http_request req,
+        struct strinfo* respstr)
 {
+
         return EXIT_SUCCESS;
+}
+
+
+/*
+ * Appends a request from a TCP client to the existing buffer
+ * 
+ * Returns:
+ *      - Success: 0
+ *      - No memory: -EXIT_FAILURE
+ *      - Invalid arguments: EXIT_FAILURE
+ */
+int receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
+        int (*on_disconnect)(struct serverinfo*, const SOCKET client))
+{
+        const SOCKET client = cinfo->client;
+
+        // Allocate memory
+        if (!cinfo->rvstr.buf) {
+                int amx_res = allocate_max(&(cinfo->rvstr.buf),
+                        MIN_NETBUF_LEN, MAX_NETBUF_LEN);
+                if (amx_res <= 0) return -EXIT_FAILURE;
+                cinfo->rvstr.sz = (size_t) amx_res;
+        }
+
+        // Check for room for '\0'
+        if (cinfo->rvstr.sz < 1) return EXIT_FAILURE;
+
+        // Receive the request
+        int recvd = recv(client, cinfo->rvstr.buf + cinfo->rvstr.len,
+                cinfo->rvstr.sz - cinfo->rvstr.len - 1, 0);
+        if (recvd <= 0) { // client has disconnected
+                if (drop_client(sinfo, client)) {
+                        _CPSOCKS_ERROR("Failed to drop client");
+                        return EXIT_FAILURE;
+                }
+
+                _CPSOCKS_LOG("Received disconnect\n");
+        }
+
+        cinfo->rvstr.len += (size_t) recvd;
+        cinfo->rvstr.buf[cinfo->rvstr.len] = '\0';
+
+        return EXIT_SUCCESS;
+}
+
+
+/*
+ * Parses and executes HTTP request
+ * 
+ * Returns:
+ *      - Success: written HTTP status code
+ *      - Failure: -EXIT_SUCCESS
+ */
+int process_request(struct clientinfo* cinfo)
+{
+        // Parse the request
+        struct http_request req = { 0 };
+        int parse_res = parse_http_request(cinfo->rvstr.buf, &req);
+        if (parse_res != HTTP_OK) return parse_res; 
+
+        // Write the execution result to send string
+        int exec_res = execute_http_request(req, &(cinfo->sdstr));
+        if (exec_res < 0) {
+                _CPSOCKS_ERROR("Failed to execute HTTP request");
+                return exec_res;
+        }
+
+        // Move to a new request
+        move_http_request(&(cinfo->rvstr), req.clen);
+
+        return exec_res;
 }
 
 
@@ -17,46 +100,22 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
                 struct clientinfo* cinfo = &(sinfo->clients[i]);
                 if (cinfo->client != client) continue;
 
-                if (!cinfo->rvstr.buf) { // allocate memory
-                        int amx_res = allocate_max(&(cinfo->rvstr.buf),
-                                MIN_NETBUF_LEN, MAX_NETBUF_LEN);
-                        if (amx_res <= 0) return; // failed to allocate memory
-                        cinfo->rvstr.sz = (size_t) amx_res;
+                int rr_res = receive_request(sinfo, cinfo, drop_client);
+                if (rr_res < 0) { // bug
+                        _CPSOCKS_FATALERROR("Invalid client / server data");
                 }
-
-                if (cinfo->rvstr.sz < 1) return; // check for room for '\0'
-
-                int recvd = recv(client, cinfo->rvstr.buf + cinfo->rvstr.len,
-                        cinfo->rvstr.sz - cinfo->rvstr.len - 1, 0);
-                if (recvd <= 0) { // client has disconnected
-                        drop_client(sinfo, client);
-                        return;
-                }
-
-                cinfo->rvstr.len += (size_t) recvd;
-                cinfo->rvstr.buf[cinfo->rvstr.len] = '\0'; // for strstr()
 
                 // Check if the request was fully scanned
-                if (strstr(cinfo->rvstr.buf, "\r\n\r\n")) {
-                        struct http_request req = { 0 };
-                        int phr_res = parse_http_request(cinfo->rvstr.buf,
-                                &req);
-
-
-                        // Write the execution result to send string
-                        int resp_sz = execute_http_request(req,
-                                &(cinfo->sdstr.buf));
-                        if (resp_sz <= 0) return;
-
-                        cinfo->sdstr.len = (size_t) resp_sz;
-
-                        // Move to a new request
-                        move_http_request(&(cinfo->rvstr), req.clen);
+                int req_status = http_request_read_status(cinfo->rvstr.buf);
+                if (req_status == HTTP_OK) {
+                        process_request(cinfo);
+                } else if (req_status == HTTP_BAD_REQUEST) {
+                        // TODO: write 400
                 }
         }
 
         _CPSOCKS_ERROR("Client was not found\n"
-                "\tFunction: on_client_read()");
+                "\tFunction: handle_http_input()");
 }
 
 
