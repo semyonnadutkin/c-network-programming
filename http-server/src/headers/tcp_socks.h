@@ -1,3 +1,13 @@
+/*
+ * File: tcp_socks.h
+ * Author: Semyon Nadutkin
+ *
+ * Description: abstractions for TCP programs
+ *
+ * Copyright (C) 2025 Semyon Nadutkin
+ */
+
+
 #pragma once
 
 

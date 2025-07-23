@@ -1,3 +1,10 @@
+/*
+ * File: tcp_socks.c
+ * Author: Semyon Nadutkin
+ * Copyright (C) 2025 Semyon Nadutkin
+ */
+
+
 #include "../headers/tcp_socks.h"
 
 

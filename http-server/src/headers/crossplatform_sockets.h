@@ -1,7 +1,3 @@
-#pragma once
-
-
-
 /*
  * File: crossplatform_sockets.h
  *
@@ -12,6 +8,9 @@
  * abstract from Berkeley sockets and Winsock
  * obtained using defines and typedefs
  */
+
+
+#pragma once
 
 
 

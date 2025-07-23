@@ -1,3 +1,14 @@
+/*
+ * File: sockshelp.h
+ * Author: Semyon Nadutkin
+ *
+ * Description: functionality for easy
+ * TCP / UDP program startup
+ *
+ * Copyright (C) 2025 Semyon Nadutkin
+ */
+
+
 #pragma once
 
 

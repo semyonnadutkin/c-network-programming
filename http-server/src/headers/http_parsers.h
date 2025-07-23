@@ -1,9 +1,22 @@
+/*
+ * File: http_parsers.h
+ * Author: Semyon Nadutkin
+ * 
+ * Description: simple functionality
+ * to parse most common parts of HTTP 1.1 requests
+ * 
+ * Copyright (C) 2025 Semyon Nadutkin
+ */
+
+
+#pragma once
+
+
 #include "tcp_socks.h"
 #include <stdlib.h>
 #include <string.h>
 
 
-// HTTP status code
 enum http_code {
         HTTP_INTERNAL_SERVER_ERROR = 500,
         HTTP_NOT_FOUND = 404,
@@ -35,7 +48,6 @@ struct http_request {
 // Frees the http_request structure
 void free_http_request(struct http_request* req);
 
-
 /*
  * Parses a HTTP header
  *
@@ -51,10 +63,24 @@ void free_http_request(struct http_request* req);
  *      - Success: HTTP status code except 500
  *      - Failure: HTTP_INTERNAL_SERVER_ERROR
  */
-int parse_http_header(const char* const req, char* header, char** dest);
+enum http_code parse_http_header(const char* const req,
+        char* header, char** dest);
 
 
-// Moves a part after content to the beginning of request
+// Parses HTTP method
+enum http_code parse_http_method(const char* const req, char** method);
+
+
+// Parses the URL part of the HTTP request
+enum http_code parse_http_url(const char* const req, char** url);
+
+
+// Parses HTTP request contents
+enum http_code parse_http_content(const char* const req,
+        char** content, const size_t clen);
+
+
+// Moves everything after the content section to the beginning of the request
 int move_http_request(struct strinfo* reqstr, size_t content_len);
 
 
@@ -71,4 +97,5 @@ int http_request_read_status(const char* const req);
 
 
 // Parses a HTTP request
-int parse_http_request(const char* const rbuf, struct http_request* req);
+enum http_code parse_http_request(const char* const rbuf,
+        struct http_request* req);

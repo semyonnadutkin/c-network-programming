@@ -1,3 +1,10 @@
+/*
+ * File: sockshelp.c
+ * Author: Semyon Nadutkin
+ * Copyright (C) 2025 Semyon Nadutkin
+ */
+
+
 #include "../headers/sockshelp.h"
 #include <stdlib.h>
 
