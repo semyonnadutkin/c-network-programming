@@ -1,56 +1,5 @@
-#include <stdlib.h>
-#include <string.h> // to parse HTTP requests
-#include "headers/crossplatform_sockets.h"
 #include "headers/sockshelp.h"
-#include "headers/tcp_socks.h"
-
-
-/*
- * HTTP request
- *
- * @method  GET / POST / ...
- * @url     Route
- * @conn    Connection
- * @ctype   Content-Type
- * @content Content
- * @clen    Content-Length
- */
-struct http_request {
-        char* method;
-        char* url;
-        char* conn;
-        char* ctype;
-        char* content;
-        size_t clen;
-};
-
-
-// Frees the http_request structure
-void free_http_request(struct http_request* req)
-{
-        if (req->method) free(req->method);
-        if (req->url) free(req->url);
-        if (req->conn) free(req->conn);
-        if (req->ctype) free(req->ctype);
-        if (req->content) free(req->content);
-
-        req->method = NULL;
-        req->url = NULL;
-        req->conn = NULL;
-        req->ctype = NULL;
-        req->content = NULL;
-        req->clen = 0;
-}
-
-
-struct http_request parse_http_request(const char* const rbuf)
-{
-        struct http_request req = { 0 };
-
-        
-
-        return req;
-}
+#include "headers/libhttp.h"
 
 
 int execute_http_request(struct http_request req, char** resp)
@@ -59,90 +8,11 @@ int execute_http_request(struct http_request req, char** resp)
 }
 
 
-// Moves a part after "\r\n\r\n" to the beginning
-int move_http_request(struct strinfo* reqstr)
-{
-        char* end = strstr(reqstr->buf, "\r\n\r\n");
-        if (!end) return EXIT_FAILURE;
-
-        end += 4; // skip "\r\n\r\n"
-
-        size_t len = strlen(end); // length of the new request
-        memmove(reqstr->buf, end, len + 1); // move with '\0'
-        reqstr->len = len;
-        
-        return EXIT_SUCCESS;
-}
-
-
-// Finds a place for a new client
-int find_place_for_client(struct serverinfo* sinfo) {
-        // Check for the free place
-        for (size_t i = 0; i < MAX_CONN; ++i) {
-                if (!ISVALIDSOCK(sinfo->clients[i].client)) {
-                        return i;
-                }
-        }
-
-        // No place for a new client
-        return -EXIT_FAILURE;
-}
-
-
-// Accepts a new client, initializes the free cell
-void server_accept_client(struct serverinfo* sinfo)
-{
-        int cidx = find_place_for_client(sinfo);
-        if (cidx < 0) {
-                _CPSOCKS_ERROR("Too much clients\n"
-                        "\tFunction: server_accept_client()");
-                return;
-        }
-
-        // Accept the client
-        struct sockaddr_storage caddr = { 0 };
-        socklen_t caddr_len = sizeof(caddr);
-        SOCKET client = accept(sinfo->serv,
-                (struct sockaddr*) &caddr, &caddr_len);
-        if (!ISVALIDSOCK(client)) {
-                PSOCKERROR("accept() failed");
-                return;
-        }
-
-        // Initialize the client's cell
-        sinfo->clients[cidx].client = client;
-
-        // Get the string representation
-        char addr[MAX_ADDRBUF_LEN];
-        char serv[MAX_SERVBUF_LEN];
-        int gni_res = getnameinfo((struct sockaddr*) &caddr, caddr_len,
-                addr, sizeof(addr), serv, sizeof(serv),
-                NI_NUMERICHOST | NI_NUMERICHOST);
-        if (gni_res) {
-                PSOCKERROR("getnameinfo() failed");
-        }
-        
-        fprintf(stdout, "Connection from %s:%s\n", addr, serv);
-}
-
-
-// Disconnects the given client and clears the related clientinfo structure
-int drop_client(struct serverinfo* sinfo, const SOCKET client)
-{
-        // Find the client
-        for (size_t i = 0; i < MAX_CONN; ++i) {
-                if (sinfo->clients[i].client == client) {
-                        cleanup_clientinfo(&(sinfo->clients[i]));
-                }
-        }
-
-        return EXIT_FAILURE; // client was not found
-}
-
-
 // Called when a client's fd is set for a read operation
 void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
 {
+        // TODO: split the function
+        
         for (size_t i = 0; i < MAX_CONN; ++i) {
                 struct clientinfo* cinfo = &(sinfo->clients[i]);
                 if (cinfo->client != client) continue;
@@ -168,8 +38,10 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
 
                 // Check if the request was fully scanned
                 if (strstr(cinfo->rvstr.buf, "\r\n\r\n")) {
-                        struct http_request req
-                                = parse_http_request(cinfo->rvstr.buf);
+                        struct http_request req = { 0 };
+                        int phr_res = parse_http_request(cinfo->rvstr.buf,
+                                &req);
+
 
                         // Write the execution result to send string
                         int resp_sz = execute_http_request(req,
@@ -179,7 +51,7 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
                         cinfo->sdstr.len = (size_t) resp_sz;
 
                         // Move to a new request
-                        move_http_request(&(cinfo->rvstr));
+                        move_http_request(&(cinfo->rvstr), req.clen);
                 }
         }
 

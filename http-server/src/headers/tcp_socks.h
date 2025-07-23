@@ -127,3 +127,14 @@ int server_check_fds(struct serverinfo* sinfo,
         void (*on_serv_set)(struct serverinfo* sinfo),
         void (*on_read_set)(struct serverinfo* sinfo, const SOCKET client),
         void (*on_write_set)(struct serverinfo* sinfo, const SOCKET client));
+
+
+// Finds a place for a new client
+int find_place_for_client(struct serverinfo* sinfo);
+
+
+// Accepts a new client, initializes the free cell
+void server_accept_client(struct serverinfo* sinfo);
+
+// Disconnects the given client and clears the related clientinfo structure
+int drop_client(struct serverinfo* sinfo, const SOCKET client);

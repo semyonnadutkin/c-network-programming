@@ -113,14 +113,16 @@ SOCKET start_server(struct addrinfo* addr, const int max_conn)
         }
 
         // Start listenning
-        int lsn_res = listen(serv, max_conn);
-        if (lsn_res) {
-                PSOCKERROR("listen() failed");
-                if (CLOSESOCKET(serv)) {
-                        PSOCKERROR("close() failed");
-                }
+        if (addr->ai_socktype == SOCK_STREAM) {
+                int lsn_res = listen(serv, max_conn);
+                if (lsn_res) {
+                        PSOCKERROR("listen() failed");
+                        if (CLOSESOCKET(serv)) {
+                                PSOCKERROR("close() failed");
+                        }
 
-                return INVALID_SOCKET;
+                        return INVALID_SOCKET;
+                }
         }
 
         return serv;

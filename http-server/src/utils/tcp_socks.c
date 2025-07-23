@@ -165,3 +165,65 @@ int server_check_fds(struct serverinfo* sinfo,
 
         return EXIT_SUCCESS;
 }
+
+
+int find_place_for_client(struct serverinfo* sinfo) {
+        // Check for the free place
+        for (size_t i = 0; i < MAX_CONN; ++i) {
+                if (!ISVALIDSOCK(sinfo->clients[i].client)) {
+                        return i;
+                }
+        }
+
+        // No place for a new client
+        return -EXIT_FAILURE;
+}
+
+
+void server_accept_client(struct serverinfo* sinfo)
+{
+        int cidx = find_place_for_client(sinfo);
+        if (cidx < 0) {
+                _CPSOCKS_ERROR("Too much clients\n"
+                        "\tFunction: server_accept_client()");
+                return;
+        }
+
+        // Accept the client
+        struct sockaddr_storage caddr = { 0 };
+        socklen_t caddr_len = sizeof(caddr);
+        SOCKET client = accept(sinfo->serv,
+                (struct sockaddr*) &caddr, &caddr_len);
+        if (!ISVALIDSOCK(client)) {
+                PSOCKERROR("accept() failed");
+                return;
+        }
+
+        // Initialize the client's cell
+        sinfo->clients[cidx].client = client;
+
+        // Get the string representation
+        char addr[MAX_ADDRBUF_LEN];
+        char serv[MAX_SERVBUF_LEN];
+        int gni_res = getnameinfo((struct sockaddr*) &caddr, caddr_len,
+                addr, sizeof(addr), serv, sizeof(serv),
+                NI_NUMERICHOST | NI_NUMERICHOST);
+        if (gni_res) {
+                PSOCKERROR("getnameinfo() failed");
+        }
+        
+        fprintf(stdout, "Connection from %s:%s\n", addr, serv);
+}
+
+
+int drop_client(struct serverinfo* sinfo, const SOCKET client)
+{
+        // Find the client
+        for (size_t i = 0; i < MAX_CONN; ++i) {
+                if (sinfo->clients[i].client == client) {
+                        cleanup_clientinfo(&(sinfo->clients[i]));
+                }
+        }
+
+        return EXIT_FAILURE; // client was not found
+}
