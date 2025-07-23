@@ -7,6 +7,8 @@
  * Description: functionality to
  * abstract from Berkeley sockets and Winsock
  * obtained using defines and typedefs
+ * 
+ * Copyright (C) 2025 Semyon Nadutkin
  */
 
 
