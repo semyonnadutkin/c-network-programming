@@ -12,6 +12,7 @@
 
 
 #include "crossplatform_sockets.h"
+#include "sockshelp.h"
 #include <stdlib.h>
 
 
@@ -112,9 +113,28 @@ void initialize_serverinfo(struct serverinfo* sinfo, const SOCKET serv);
 void cleanup_serverinfo(struct serverinfo* sinfo);
 
 
-// Transforms a serverinfo structure to an fd_set containing
-// connected clients' fds and the server fd
-void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res);
+/*
+ * Appends a request from a TCP client to the existing buffer
+ * 
+ * Returns:
+ *      - Success:      bytes read
+ *      - Disconnect:   EXIT_SUCCESS  (0)
+ *      - Error:        -EXIT_FAILURE (-1)
+ */
+int server_receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
+        int (*on_disconnect)(struct serverinfo*, const SOCKET client));
+
+
+// Finds a place for a new client
+int find_place_for_client(struct serverinfo* sinfo);
+
+
+// Accepts a new client, initializes the free cell
+void server_accept_client(struct serverinfo* sinfo);
+
+
+// Disconnects the given client and clears the related clientinfo structure
+int drop_client(struct serverinfo* sinfo, const SOCKET client);
 
 
 // Handles clients' connections
@@ -123,6 +143,15 @@ void server_handle_clients(struct serverinfo* sinfo,
         const fd_set writefds,
         void (*on_read_set)(struct serverinfo* sinfo, const SOCKET client),
         void (*on_write_set)(struct serverinfo* sinfo, const SOCKET client));
+
+
+// Transforms a serverinfo structure to an fd_set containing
+// connected clients' fds and the server fd
+void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res);
+
+
+// Updates max fd value for select() call
+void update_max_fd(struct serverinfo* sinfo);
 
 
 /*
@@ -137,14 +166,3 @@ int server_check_fds(struct serverinfo* sinfo,
         void (*on_serv_set)(struct serverinfo* sinfo),
         void (*on_read_set)(struct serverinfo* sinfo, const SOCKET client),
         void (*on_write_set)(struct serverinfo* sinfo, const SOCKET client));
-
-
-// Finds a place for a new client
-int find_place_for_client(struct serverinfo* sinfo);
-
-
-// Accepts a new client, initializes the free cell
-void server_accept_client(struct serverinfo* sinfo);
-
-// Disconnects the given client and clears the related clientinfo structure
-int drop_client(struct serverinfo* sinfo, const SOCKET client);

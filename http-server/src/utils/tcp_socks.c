@@ -6,10 +6,9 @@
 
 
 #include "../headers/tcp_socks.h"
+#include <stdlib.h>
 
 
-// Initializes struct strinfo
-// Sets all parameters to zero
 void initialize_strinfo(struct strinfo* strinf)
 {
         strinf->buf = NULL;
@@ -19,7 +18,6 @@ void initialize_strinfo(struct strinfo* strinf)
 }
 
 
-// Frees the buffer, sets the default values
 void cleanup_strinfo(struct strinfo* strinf)
 {
         if (strinf->buf) {
@@ -30,9 +28,6 @@ void cleanup_strinfo(struct strinfo* strinf)
 }
 
 
-// Initializes struct clientinfo
-// Sets "client" to "INVALID_SOCKET",
-// initalizes the related strinfo structures
 void initialize_clientinfo(struct clientinfo* cinfo)
 {
         cinfo->client = INVALID_SOCKET;
@@ -41,12 +36,12 @@ void initialize_clientinfo(struct clientinfo* cinfo)
 }
 
 
-// Closes the fd, cleans up the related strinfo structures
 void cleanup_clientinfo(struct clientinfo* cinfo)
 {
         // Close the fd
         if (ISVALIDSOCK(cinfo->client)) {
                 int cs_res = CLOSESOCKET(cinfo->client);
+                cinfo->client = INVALID_SOCKET;
                 if (cs_res) {
                         PSOCKERROR("close() failed");
                 }
@@ -58,8 +53,6 @@ void cleanup_clientinfo(struct clientinfo* cinfo)
 }
 
 
-// Initializes server and max fds with "serv",
-// initializes the related clientinfo structures
 void initialize_serverinfo(struct serverinfo* sinfo, const SOCKET serv)
 {
         sinfo->serv = serv;
@@ -70,8 +63,6 @@ void initialize_serverinfo(struct serverinfo* sinfo, const SOCKET serv)
 }
 
 
-// Closes the server fd,
-// cleans up the related clientinfo structures
 void cleanup_serverinfo(struct serverinfo* sinfo)
 {
         // Close the fd
@@ -90,8 +81,91 @@ void cleanup_serverinfo(struct serverinfo* sinfo)
 }
 
 
-// Transforms a serverinfo structure to an fd_set containing
-// connected clients' fds and the server fd
+int receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
+        int (*on_disconnect)(struct serverinfo*, const SOCKET client))
+{
+        const SOCKET client = cinfo->client;
+
+        // Allocate memory
+        if (!cinfo->rvstr.buf) {
+                int amx_res = allocate_max(&(cinfo->rvstr.buf),
+                        MIN_NETBUF_LEN, MAX_NETBUF_LEN);
+                if (amx_res <= 0) return -EXIT_FAILURE;
+                cinfo->rvstr.sz = (size_t) amx_res;
+        }
+
+        // Check for room for '\0'
+        if (cinfo->rvstr.sz < 1) return -EXIT_FAILURE;
+
+        // Receive the request
+        int recvd = recv(client, cinfo->rvstr.buf + cinfo->rvstr.len,
+                cinfo->rvstr.sz - cinfo->rvstr.len - 1, 0);
+        if (recvd <= 0) { // client has disconnected
+                if (drop_client(sinfo, client)) {
+                        _CPSOCKS_ERROR("Failed to drop client");
+                        return -EXIT_FAILURE;
+                }
+
+                return EXIT_SUCCESS;
+        }
+
+        cinfo->rvstr.len += (size_t) recvd;
+        cinfo->rvstr.buf[cinfo->rvstr.len] = '\0';
+
+        return recvd;
+}
+
+
+void server_accept_client(struct serverinfo* sinfo)
+{
+        int cidx = find_place_for_client(sinfo);
+        if (cidx < 0) {
+                _CPSOCKS_ERROR("Too much clients: server_accept_client()");
+                return;
+        }
+
+        // Accept the client
+        struct sockaddr_storage caddr = { 0 };
+        socklen_t caddr_len = sizeof(caddr);
+        SOCKET client = accept(sinfo->serv,
+                (struct sockaddr*) &caddr, &caddr_len);
+        if (!ISVALIDSOCK(client)) {
+                PSOCKERROR("accept() failed");
+                return;
+        }
+
+        // Initialize the client's cell
+        sinfo->clients[cidx].client = client;
+
+        // Get the string representation
+        char addr[MAX_ADDRBUF_LEN];
+        char serv[MAX_SERVBUF_LEN];
+        int gni_res = getnameinfo((struct sockaddr*) &caddr, caddr_len,
+                addr, sizeof(addr), serv, sizeof(serv),
+                NI_NUMERICHOST | NI_NUMERICHOST);
+        if (gni_res) {
+                PSOCKERROR("getnameinfo() failed");
+        }
+        
+        printf("Connection from %s:%s\n", addr, serv);
+}
+
+
+int drop_client(struct serverinfo* sinfo, const SOCKET client)
+{
+        // Find the client
+        for (size_t i = 0; i < MAX_CONN; ++i) {
+                if (sinfo->clients[i].client == client) {
+                        cleanup_clientinfo(&(sinfo->clients[i]));
+                        _CPSOCKS_LOG("Client was dropped");
+                        return EXIT_SUCCESS;
+                }
+        }
+
+        return EXIT_FAILURE; // client was not found
+}
+
+
 void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res)
 {
         // Initialize, set the server fd
@@ -108,7 +182,6 @@ void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res)
 }
 
 
-// Handles clients' connections
 void server_handle_clients(struct serverinfo* sinfo,
         const fd_set readfds,
         const fd_set writefds,
@@ -133,14 +206,19 @@ void server_handle_clients(struct serverinfo* sinfo,
 }
 
 
-/*
- * Blocks until at least one fd has input
- *
- * @sinfo        Info about the TCP server
- * @on_serv_set  Function called if a client is trying to connect
- * @on_read_set  Function called if a client's fd is set for read operation
- * @on_write_set Function called if a client's fd is set for write operation
- */
+void update_max_fd(struct serverinfo* sinfo)
+{
+        SOCKET mx = sinfo->serv;
+        for (size_t i = 0; i < MAX_CONN; ++i) {
+                if (mx < sinfo->clients[i].client) {
+                        mx = sinfo->clients[i].client;
+                }
+        }
+
+        sinfo->max_fd = mx;
+}
+
+
 int server_check_fds(struct serverinfo* sinfo,
         void (*on_serv_set)(struct serverinfo* sinfo),
         void (*on_read_set)(struct serverinfo* sinfo, const SOCKET client),
@@ -169,6 +247,7 @@ int server_check_fds(struct serverinfo* sinfo,
         // Handle clients
         server_handle_clients(sinfo, readfds, writefds,
                 on_read_set, on_write_set);
+        update_max_fd(sinfo);
 
         return EXIT_SUCCESS;
 }
@@ -184,53 +263,4 @@ int find_place_for_client(struct serverinfo* sinfo) {
 
         // No place for a new client
         return -EXIT_FAILURE;
-}
-
-
-void server_accept_client(struct serverinfo* sinfo)
-{
-        int cidx = find_place_for_client(sinfo);
-        if (cidx < 0) {
-                _CPSOCKS_ERROR("Too much clients\n"
-                        "\tFunction: server_accept_client()");
-                return;
-        }
-
-        // Accept the client
-        struct sockaddr_storage caddr = { 0 };
-        socklen_t caddr_len = sizeof(caddr);
-        SOCKET client = accept(sinfo->serv,
-                (struct sockaddr*) &caddr, &caddr_len);
-        if (!ISVALIDSOCK(client)) {
-                PSOCKERROR("accept() failed");
-                return;
-        }
-
-        // Initialize the client's cell
-        sinfo->clients[cidx].client = client;
-
-        // Get the string representation
-        char addr[MAX_ADDRBUF_LEN];
-        char serv[MAX_SERVBUF_LEN];
-        int gni_res = getnameinfo((struct sockaddr*) &caddr, caddr_len,
-                addr, sizeof(addr), serv, sizeof(serv),
-                NI_NUMERICHOST | NI_NUMERICHOST);
-        if (gni_res) {
-                PSOCKERROR("getnameinfo() failed");
-        }
-        
-        fprintf(stdout, "Connection from %s:%s\n", addr, serv);
-}
-
-
-int drop_client(struct serverinfo* sinfo, const SOCKET client)
-{
-        // Find the client
-        for (size_t i = 0; i < MAX_CONN; ++i) {
-                if (sinfo->clients[i].client == client) {
-                        cleanup_clientinfo(&(sinfo->clients[i]));
-                }
-        }
-
-        return EXIT_FAILURE; // client was not found
 }

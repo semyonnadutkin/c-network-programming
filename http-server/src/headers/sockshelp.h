@@ -20,8 +20,8 @@
  * Allocates as much bytes as possible
  *
  * @dest Buffer for which memory is allocated
- * @mx Needed buffer size
  * @mn Minimum buffer size
+ * @mx Needed buffer size
  *
  * Description: tries allocating "mx" bytes,
  * "mx" / 2 bytes on fail and so on until
@@ -31,7 +31,7 @@
  *      - Failure: -1
  *      - Success: number of bytes allocated
  */
-int allocate_max(char** dest, const int mx, const int mn);
+int allocate_max(char** dest, const int mn, const int mx);
 
 
 // Starts sockets API on Windows,

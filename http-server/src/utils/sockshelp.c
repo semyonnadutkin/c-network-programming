@@ -6,18 +6,15 @@
 
 
 #include "../headers/sockshelp.h"
-#include <stdlib.h>
 
 
-int allocate_max(char** dest, const int mx, const int mn)
+int allocate_max(char** dest, const int mn, const int mx)
 {        
         // Allocate memory
         size_t dest_sz = (size_t) mx;
         while (dest_sz && mn <= (int) dest_sz) {
                 *dest = (char*) calloc(dest_sz, sizeof(char));
-                if (*dest) {
-                        return dest_sz; // success
-                }
+                if (*dest) return (int) dest_sz; // success
 
                 dest_sz /= 2;
         }
@@ -90,6 +87,7 @@ int make_dual_stack(const SOCKET fd)
             return EXIT_FAILURE;
         }
 
+        _CPSOCKS_LOG("Server socket was made dual stack");
         return EXIT_SUCCESS;
 }
 
@@ -132,5 +130,6 @@ SOCKET start_server(struct addrinfo* addr, const int max_conn)
                 }
         }
 
+        _CPSOCKS_LOG("Server was started");
         return serv;
 }
