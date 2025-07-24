@@ -471,17 +471,17 @@ int client_scanf(struct net_client_info* cinfo) {
                 return EXIT_FAILURE;
         }
 
-        // Get the input (room for '\0')
+        // Get the input
         if (!fgets(cinfo->send_buf + cinfo->sdblen,
-                   cinfo->sdbsz - cinfo->sdblen - 1, stdin)) {
+                   cinfo->sdbsz - cinfo->sdblen, stdin)) {
                 perror("fgets() failed");
                 return EXIT_FAILURE;
         }
 
         printf("Scanned: %s\n", cinfo->send_buf);
+        cinfo->sdblen += strlen(cinfo->send_buf + cinfo->sdblen);
 
         // Check input for containing the "--from-file" command
-        cinfo->send_buf[cinfo->sdblen] = '\0';
         const char* path = parse_from_file_command(cinfo->send_buf);
         
         if (path) {
