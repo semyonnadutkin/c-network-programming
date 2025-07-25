@@ -72,7 +72,7 @@ struct addrinfo* configure_address(const char* addr,
         struct addrinfo* res = NULL;
         int gai_res = getaddrinfo(addr, serv, &hints, &res);
         if (gai_res) {  // to avoid a warning from GCC
-                PSOCKERROR("getaddrinfo() failed");
+                psockerror("getaddrinfo() failed");
         }
 
         return res;
@@ -83,11 +83,11 @@ int make_dual_stack(const SOCKET fd)
 {
         int opt = 0;
         if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt))) {
-            PSOCKERROR("setsockopt() failed");
+            psockerror("setsockopt() failed");
             return EXIT_FAILURE;
         }
 
-        _CPSOCKS_LOG("Server socket was made dual stack");
+        printf("Server socket was made dual stack");
         return EXIT_SUCCESS;
 }
 
@@ -97,21 +97,21 @@ SOCKET start_server(struct addrinfo* addr, const int max_conn)
         // Create a socket
         SOCKET serv = socket(addr->ai_family,
             addr->ai_socktype, addr->ai_protocol);
-        if (!ISVALIDSOCK(serv)) {
-                PSOCKERROR("socket() failed");
+        if (!validate_socket(serv)) {
+                psockerror("socket() failed");
                 return serv;    // = INVALID_SOCKET (-1)
         }
 
         if (make_dual_stack(serv)) {
-                _CPSOCKS_ERROR("Failed to make dual stack");
+                fprintf(stderr, "Failed to make dual stack\n");
         }
 
         // Bind the socket to the provided address
         int bnd_res = bind(serv, addr->ai_addr, addr->ai_addrlen);
         if (bnd_res) {
-                PSOCKERROR("bind() failed");
-                if (CLOSESOCKET(serv)) {
-                        PSOCKERROR("close() failed");
+                psockerror("bind() failed");
+                if (closesocket(serv)) {
+                        psockerror("close() failed");
                 }
                 
                 return INVALID_SOCKET;
@@ -121,15 +121,15 @@ SOCKET start_server(struct addrinfo* addr, const int max_conn)
         if (addr->ai_socktype == SOCK_STREAM) {
                 int lsn_res = listen(serv, max_conn);
                 if (lsn_res) {
-                        PSOCKERROR("listen() failed");
-                        if (CLOSESOCKET(serv)) {
-                                PSOCKERROR("close() failed");
+                        psockerror("listen() failed");
+                        if (closesocket(serv)) {
+                                psockerror("close() failed");
                         }
 
                         return INVALID_SOCKET;
                 }
         }
 
-        _CPSOCKS_LOG("Server was started");
+        printf("Server was started");
         return serv;
 }

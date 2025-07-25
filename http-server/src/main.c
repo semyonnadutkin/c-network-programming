@@ -1,3 +1,4 @@
+#include "headers/cross_platform_sockets.h"
 #include "headers/http_parsers.h"
 
 
@@ -32,7 +33,7 @@ int process_request(struct clientinfo* cinfo)
         // Write the execution result to send string
         int exec_res = execute_http_request(req, &(cinfo->sdstr));
         if (exec_res < 0) {
-                _CPSOCKS_ERROR("Failed to execute HTTP request");
+                fprintf(stderr, "Failed to execute HTTP request");
                 return exec_res;
         }
 
@@ -52,7 +53,7 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
 
                 int rr_res = server_receive_request(sinfo, cinfo, drop_client);
                 if (rr_res < 0) { // bug
-                        _CPSOCKS_FATALERROR("Invalid data: receive_request()");
+                        pfatal("Invalid data: receive_request()");
                 } else if (rr_res == 0) { // received disconnect
                         return;
                 }
@@ -69,7 +70,7 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
                 return;
         }
 
-        _CPSOCKS_ERROR("Client was not found: handle_http_input()");
+        fprintf(stderr, "Client was not found: handle_http_input()");
 }
 
 
@@ -90,7 +91,7 @@ int http_server_handle_communication(const SOCKET serv)
                 int scfds_res = server_check_fds(&sinfo, server_accept_client,
                         handle_http_input, on_client_write);
                 if (scfds_res) {
-                        _CPSOCKS_ERROR("server_check_fds() failed");
+                        fprintf(stderr, "server_check_fds() failed");
                         goto out_failure_cleanup_serverinfo;
                 }
         }
@@ -119,14 +120,14 @@ int http_server(const char* port)
         // Create a socket
         SOCKET serv = start_server(addr, MAX_CONN);
         freeaddrinfo(addr);
-        if (!ISVALIDSOCK(serv)) {
+        if (!validate_socket(serv)) {
                 goto out_failure_sockets_cleanup;
         }
 
         // Run the server
         int hshc_res = http_server_handle_communication(serv);
         if (hshc_res) {
-                _CPSOCKS_ERROR("server_handle_communication() failed");
+                fprintf(stderr, "server_handle_communication() failed");
                 goto out_failure_sockets_cleanup;
         }
 
@@ -141,7 +142,7 @@ out_failure_sockets_cleanup:
 int main(int argc, const char* argv[])
 {
         if (argc != 2) {
-            _CPSOCKS_FATALERROR("Usage:\n\thttp_server [PORT]");
+            pfatal("Usage:\n\thttp_server [PORT]");
         }
 
         const char* port = argv[1];

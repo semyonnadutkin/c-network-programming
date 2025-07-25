@@ -4,18 +4,17 @@
 /*
  * File: tcp_client.c
  *
- * Idea: Lewis Van Winkle
- * Implementation: Semyon Nadutkin
- *
  * Description: simple TCP client
  * that can be used for debugging
  * applications working over TCP
+ *
+ * Created by Semyon Nadutkin, 2025
  */
 
 
 
-#define _CPSOCKS_DEBUG_                     // for debug purposes
-#include "headers/crossplatform_sockets.h"  // crossplatform settings
+#define _CPSOCKS_DEBUG_                      // for debug purposes
+#include "headers/cross_platform_sockets.h"  // crossplatform settings
 
 
 #include <stdio.h>  // to log the process flow
@@ -86,14 +85,12 @@ struct straddr prompt_for_new_address(void)
 int allocate_max(char** dest, const int mx, const int mn)
 {
         if (!dest) {    // invalid "dest" pointer
-                _CPSOCKS_ERROR("Invalid pointer passed\n"
-                               "\tFunction: allocate_max()");
+                fprintf(stderr, "Invalid pointer passed: allocate_max()");
                 return -1;
         }
 
         if (mx < mn) {  // invalid bounds
-                _CPSOCKS_ERROR("Invalid bounds provided\n"
-                               "\tFunction: allocate_max()");
+                fprintf(stderr, "Invalid bounds provided: allocate_max()");
                 return -1;
         }
 
@@ -135,7 +132,7 @@ int sockets_startup(void)
 
         ret = WSAStartup(ws_ver, &wsd);
         if (ret) {  // startup failed
-                PSOCKERROR("WSAStartup() failed");
+                psockerror("WSAStartup() failed");
         }
 #endif // _WIN32
 
@@ -153,7 +150,7 @@ int sockets_cleanup(void)
 #ifdef _WIN32
         ret = WSACleanup();
         if (ret) {  // cleanup failed
-                PSOCKERROR("WSACleanup() failed");
+                psockerror("WSACleanup() failed");
         }
 #endif // _WIN32
 
@@ -181,7 +178,7 @@ struct addrinfo* configure_address(const char* addr,
         struct addrinfo* res = NULL;
         int gai_res = getaddrinfo(addr, serv, &hints, &res);
         if (gai_res) {
-                PSOCKERROR("getaddrinfo() failed");
+                psockerror("getaddrinfo() failed");
         }
 
         return res;
@@ -199,15 +196,15 @@ SOCKET start_client(const char* addr,
         struct addrinfo* remote_addr = configure_address(addr, serv, family,
                                                          socktype, flags);
         if (!remote_addr) {     // configuration failed
-                _CPSOCKS_ERROR("Failed to configure remote address");
+                psockerror("Failed to configure remote address");
                 return INVALID_SOCKET;
         }
 
         printf("Creating a socket...\n");
         SOCKET remote = socket(remote_addr->ai_family,
                          remote_addr->ai_socktype, remote_addr->ai_protocol);
-        if (!ISVALIDSOCK(remote)) {     // socket creation failed
-                PSOCKERROR("socket() failed");
+        if (!validate_socket(remote)) {     // socket creation failed
+                psockerror("socket() failed");
                 return remote;  // set to an invalid value by socket()
         }
 
@@ -216,7 +213,7 @@ SOCKET start_client(const char* addr,
                          remote_addr->ai_addr, remote_addr->ai_addrlen);
         freeaddrinfo(remote_addr);      // no more needed
         if (conn_res) {         // connection failed
-                PSOCKERROR("connect() failed");
+                psockerror("connect() failed");
                 return INVALID_SOCKET;
         }
 
@@ -311,7 +308,8 @@ int client_check_fds(struct net_client_info* cinfo,
 {
         if (!cinfo || !timeout
             || !on_peer_read || !on_peer_write || !on_console_input) {
-                _CPSOCKS_ERROR("NULL pointer(s) passed: client_check_fds()");
+                fprintf(stderr, "NULL pointer(s) passed:"
+                        "client_check_fds()\n");
                 return EXIT_FAILURE;
         }
 
@@ -319,7 +317,7 @@ int client_check_fds(struct net_client_info* cinfo,
         struct client_select_result res
                 = client_select_fds(cinfo->remote_peer, timeout);
         if (res.ret) {
-                _CPSOCKS_ERROR("Error from client_select_fds()");
+                fprintf(stderr, "Error from client_select_fds()\n");
                 return res.ret;
         }
 
@@ -327,7 +325,7 @@ int client_check_fds(struct net_client_info* cinfo,
         if (FD_ISSET(cinfo->remote_peer, &(res.readfds))) {
                 int opr_res = on_peer_read(cinfo);
                 if (opr_res) {
-                        _CPSOCKS_ERROR("Error from on_peer_read()");
+                        fprintf(stderr, "Error from on_peer_read()\n");
                         return opr_res;
                 }
         }
@@ -336,7 +334,7 @@ int client_check_fds(struct net_client_info* cinfo,
         if (FD_ISSET(cinfo->remote_peer, &(res.writefds))) {
                 int opw_res = on_peer_write(cinfo);
                 if (opw_res) {
-                        _CPSOCKS_ERROR("Error from on_peer_write()");
+                        fprintf(stderr, "Error from on_peer_write()\n");
                         return opw_res;
                 }
         }
@@ -349,7 +347,7 @@ int client_check_fds(struct net_client_info* cinfo,
 #endif
                 int oci_res = on_console_input(cinfo);
                 if (oci_res) {
-                        _CPSOCKS_ERROR("Error from on_console_input()");
+                        fprintf(stderr, "Error from on_console_input()\n");
                         return oci_res;
                 }
         }
@@ -361,13 +359,13 @@ int client_check_fds(struct net_client_info* cinfo,
 // Receives a message from the remote peer
 int client_recv(struct net_client_info* cinfo) {
         if (!cinfo || !cinfo->recv_buf) {
-                _CPSOCKS_ERROR("NULL pointer passed: client_recv()");
+                fprintf(stderr, "NULL pointer passed: client_recv()\n");
                 return EXIT_FAILURE;
         }
 
         int recvd = recv(cinfo->remote_peer, cinfo->recv_buf, cinfo->rvbsz, 0);
         if (recvd <= 0) {
-                _CPSOCKS_ERROR("Remote peer has disconnected");
+                printf("Remote peer has disconnected");
                 return EXIT_FAILURE;
         }
 
@@ -381,7 +379,7 @@ int client_recv(struct net_client_info* cinfo) {
 // Sends a message to the remote peer
 int client_send(struct net_client_info* cinfo) {
         if (!cinfo || !cinfo->send_buf) {
-                _CPSOCKS_ERROR("NULL pointer passed: client_send()");
+                fprintf(stderr, "NULL pointer passed: client_send()\n");
                 return EXIT_FAILURE;
         }
 
@@ -392,7 +390,7 @@ int client_send(struct net_client_info* cinfo) {
         int sent = send(cinfo->remote_peer, cinfo->send_buf + cinfo->sdbsent,
                         cinfo->sdblen - cinfo->sdbsent, 0);
         if (sent <= 0) {
-                PSOCKERROR("send() failed");
+                psockerror("send() failed");
                 return EXIT_FAILURE;
         }
 
@@ -467,7 +465,7 @@ int scan_request_from_file(const char* path, struct net_client_info* cinfo)
 // Gets input from console and writes it to the end of send buffer
 int client_scanf(struct net_client_info* cinfo) {
         if (!cinfo || !cinfo->send_buf) {
-                _CPSOCKS_ERROR("NULL pointer passed: client_scanf()");
+                fprintf(stderr, "NULL pointer passed: client_scanf()\n");
                 return EXIT_FAILURE;
         }
 
@@ -487,7 +485,8 @@ int client_scanf(struct net_client_info* cinfo) {
         if (path) {
                 int srff_res = scan_request_from_file(path, cinfo);
                 if (srff_res) {
-                        _CPSOCKS_ERROR("--from-file command was not executed");
+                        fprintf(stderr,
+                                "--from-file command was not executed\n");
                         return srff_res;
                 }
         }
@@ -509,8 +508,8 @@ void client_handle_communication(const SOCKET remote)
         int rvbsz = allocate_max(&(cinfo.recv_buf),
                 MAX_NETBUF_LEN, MIN_NETBUF_LEN);
         if (sdbsz < 0 || rvbsz < 0) {
-                _CPSOCKS_ERROR("Not enough memory\n"
-                               "Function: client_handle_communication()");
+                fprintf(stderr, "Not enough memory:"
+                               "client_handle_communication()\n");
                 goto out_send_recv_buffs_cleanup;
         }
 
@@ -529,7 +528,7 @@ void client_handle_communication(const SOCKET remote)
                                                client_send,
                                                client_scanf);
                 if (ccf_res) {
-                        _CPSOCKS_ERROR("Error from client_check_fds()");
+                        fprintf(stderr, "Error from client_check_fds()\n");
                         break;
                 }
         }

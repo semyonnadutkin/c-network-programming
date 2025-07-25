@@ -7,6 +7,7 @@
 
 #include "../headers/tcp_socks.h"
 #include <stdlib.h>
+#include <unistd.h>
 
 
 void initialize_strinfo(struct strinfo* strinf)
@@ -39,11 +40,11 @@ void initialize_clientinfo(struct clientinfo* cinfo)
 void cleanup_clientinfo(struct clientinfo* cinfo)
 {
         // Close the fd
-        if (ISVALIDSOCK(cinfo->client)) {
-                int cs_res = CLOSESOCKET(cinfo->client);
+        if (validate_socket(cinfo->client)) {
+                int cs_res = closesocket(cinfo->client);
                 cinfo->client = INVALID_SOCKET;
                 if (cs_res) {
-                        PSOCKERROR("close() failed");
+                        psockerror("close() failed");
                 }
         }
 
@@ -66,9 +67,9 @@ void initialize_serverinfo(struct serverinfo* sinfo, const SOCKET serv)
 void cleanup_serverinfo(struct serverinfo* sinfo)
 {
         // Close the fd
-        int ret = CLOSESOCKET(sinfo->serv);
+        int ret = closesocket(sinfo->serv);
         if (ret) {
-                PSOCKERROR("close() failed");
+                psockerror("close() failed");
         }
 
         // Clean up clients
@@ -101,8 +102,8 @@ int receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
         int recvd = recv(client, cinfo->rvstr.buf + cinfo->rvstr.len,
                 cinfo->rvstr.sz - cinfo->rvstr.len - 1, 0);
         if (recvd <= 0) { // client has disconnected
-                if (drop_client(sinfo, client)) {
-                        _CPSOCKS_ERROR("Failed to drop client");
+                if (on_disconnect(sinfo, client)) {
+                        fprintf(stderr, "on_disconnect() failed\n");
                         return -EXIT_FAILURE;
                 }
 
@@ -120,7 +121,7 @@ void server_accept_client(struct serverinfo* sinfo)
 {
         int cidx = find_place_for_client(sinfo);
         if (cidx < 0) {
-                _CPSOCKS_ERROR("Too much clients: server_accept_client()");
+                fprintf(stderr, "Too much clients: server_accept_client()\n");
                 return;
         }
 
@@ -129,8 +130,8 @@ void server_accept_client(struct serverinfo* sinfo)
         socklen_t caddr_len = sizeof(caddr);
         SOCKET client = accept(sinfo->serv,
                 (struct sockaddr*) &caddr, &caddr_len);
-        if (!ISVALIDSOCK(client)) {
-                PSOCKERROR("accept() failed");
+        if (!validate_socket(client)) {
+                psockerror("accept() failed");
                 return;
         }
 
@@ -144,7 +145,7 @@ void server_accept_client(struct serverinfo* sinfo)
                 addr, sizeof(addr), serv, sizeof(serv),
                 NI_NUMERICHOST | NI_NUMERICHOST);
         if (gni_res) {
-                PSOCKERROR("getnameinfo() failed");
+                psockerror("getnameinfo() failed");
         }
         
         printf("Connection from %s:%s\n", addr, serv);
@@ -157,7 +158,7 @@ int drop_client(struct serverinfo* sinfo, const SOCKET client)
         for (size_t i = 0; i < MAX_CONN; ++i) {
                 if (sinfo->clients[i].client == client) {
                         cleanup_clientinfo(&(sinfo->clients[i]));
-                        _CPSOCKS_LOG("Client was dropped");
+                        printf("Client was dropped");
                         return EXIT_SUCCESS;
                 }
         }
@@ -175,7 +176,7 @@ void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res)
         // Set the clients
         for (size_t i = 0; i < MAX_CONN; ++i) {
                 const SOCKET client = sinfo->clients[i].client;
-                if (ISVALIDSOCK(client)) {
+                if (validate_socket(client)) {
                         FD_SET(client, res);
                 }
         }
@@ -190,14 +191,14 @@ void server_handle_clients(struct serverinfo* sinfo,
 {
         for (size_t i = 0; i < MAX_CONN; ++i) {
                 // Check for the ability to send the response first
-                if (ISVALIDSOCK(sinfo->clients[i].client)) {
+                if (validate_socket(sinfo->clients[i].client)) {
                         if (FD_ISSET(sinfo->clients[i].client, &writefds)) {
                                 on_write_set(sinfo, sinfo->clients[i].client);
                         }
                 }
 
                 // Check if the client's fd was closed
-                if (ISVALIDSOCK(sinfo->clients[i].client)) {
+                if (validate_socket(sinfo->clients[i].client)) {
                         if (FD_ISSET(sinfo->clients[i].client, &readfds)) {
                                 on_read_set(sinfo, sinfo->clients[i].client);
                         }
@@ -235,7 +236,7 @@ int server_check_fds(struct serverinfo* sinfo,
         int slct_res = select(sinfo->max_fd + 1,
                 &readfds, &writefds, NULL, NULL);
         if (slct_res <= 0) {    // must be positive
-                PSOCKERROR("select() failed");
+                psockerror("select() failed");
                 return EXIT_FAILURE;
         }
 
@@ -256,7 +257,7 @@ int server_check_fds(struct serverinfo* sinfo,
 int find_place_for_client(struct serverinfo* sinfo) {
         // Check for the free place
         for (size_t i = 0; i < MAX_CONN; ++i) {
-                if (!ISVALIDSOCK(sinfo->clients[i].client)) {
+                if (!validate_socket(sinfo->clients[i].client)) {
                         return i;
                 }
         }
