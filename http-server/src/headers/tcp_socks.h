@@ -33,24 +33,6 @@ struct strinfo {
 
 
 /*
- * Client's current state
- *
- * @CS_READY     Client's request was fully read
- * @CS_EXECUTING Client's request is being processed
- * @CS_IDLE      Client is being idle
- * @CS_SENDING   Sending a response to the client
- * @CS_RECEIVING Receiving a client's request
- */
-enum client_state {
-        CS_READY,
-        CS_EXECUTING,
-        CS_IDLE,
-        CS_SENDING,
-        CS_RECEIVING
-};
-
-
-/*
  * Info about a TCP client
  *
  * @client Client's fd

@@ -80,9 +80,9 @@ int make_dual_stack(const SOCKET fd);
  * Starts the server
  *
  * @addr Bind address
- * @max_conn Maximum number of connections allowed to be handled at once
+ * @max_conn Maximum connections number (TCP)
  *
  * Description: creates a socket,
- * binds it to the address, starts listening
+ * binds it to the address, starts listening (TCP)
  */
 SOCKET start_server(struct addrinfo* addr, const int max_conn);

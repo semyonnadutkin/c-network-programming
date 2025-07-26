@@ -17,6 +17,7 @@
 #include <string.h>
 
 
+// HTTP status code
 enum http_code {
         HTTP_INTERNAL_SERVER_ERROR = 500,
         HTTP_NOT_FOUND = 404,
@@ -38,6 +39,8 @@ enum http_code {
 struct http_request {
         char* method;
         char* url;
+        char* http_ver;
+        char* host;
         char* conn;
         char* ctype;
         char* content;
@@ -45,8 +48,9 @@ struct http_request {
 };
 
 
-// Frees the http_request structure
-void free_http_request(struct http_request* req);
+// Cleans up the http_request structure
+void cleanup_http_request(struct http_request* req);
+
 
 /*
  * Parses a HTTP header

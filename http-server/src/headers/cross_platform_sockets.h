@@ -21,7 +21,6 @@
 
 
 
-#include <sys/cdefs.h>
 #define MAX_ADDRBUF_LEN 129     // max buffer length for an address string
 #define MAX_SERVBUF_LEN 33      // max buffer length for a service string
 

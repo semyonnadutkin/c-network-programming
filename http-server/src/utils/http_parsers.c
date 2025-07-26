@@ -8,7 +8,7 @@
 #include "../headers/http_parsers.h"
 
 
-void free_http_request(struct http_request* req)
+void cleanup_http_request(struct http_request* req)
 {
         if (req->method) free(req->method);
         if (req->url) free(req->url);
@@ -95,6 +95,24 @@ enum http_code parse_http_url(const char* const req, char** url)
 }
 
 
+enum http_code parse_http_version(const char* const req, char** ver)
+{
+        const size_t http_ver_bufsz = 9; // "HTTP/1.1" + '\0'
+        *ver = (char*) calloc(http_ver_bufsz, sizeof(char));
+        if (!ver) return HTTP_INTERNAL_SERVER_ERROR;
+
+        char* start = strstr(req, "HTTP/");
+        if (!start) return HTTP_BAD_REQUEST;
+        char* end = strstr(start, "\r\n");
+        if (!end || http_ver_bufsz < (size_t) (end - start)) {
+                return HTTP_BAD_REQUEST;
+        }
+
+        memcpy(*ver, start, end - start);
+        return HTTP_OK;
+}
+
+
 enum http_code parse_http_content(const char* const req,
         char** content, const size_t clen)
 {
@@ -110,6 +128,30 @@ enum http_code parse_http_content(const char* const req,
         if (!*content) return HTTP_INTERNAL_SERVER_ERROR;
 
         memcpy(*content, start, clen);
+        return HTTP_OK;
+}
+
+
+enum http_code parse_http_content_length(const char* const rbuf, size_t* clen)
+{
+        char* content_len = NULL;
+        int code = parse_http_header(rbuf, "Content-Length", &content_len);
+        if (code != HTTP_OK) return code;
+
+        if (content_len) {
+                char* end = NULL;
+                int len = strtol(content_len, &end, 10);
+
+                char endval = *end;
+                free(content_len);
+
+                if (endval != '\0' || len < 0) {
+                        return HTTP_BAD_REQUEST;
+                }
+
+                *clen = (size_t) len;
+        }
+
         return HTTP_OK;
 }
 
@@ -171,6 +213,14 @@ enum http_code parse_http_request(const char* const rbuf,
         code = parse_http_url(rbuf, &(req->url));
         if (code != HTTP_OK) goto out_cleanup_req_return_err;
 
+        // Parse the version
+        code = parse_http_version(rbuf, &(req->http_ver));
+        if (code != HTTP_OK) goto out_cleanup_req_return_err;
+
+        // Parse the "Host" header
+        code = parse_http_header(rbuf, "Host", &(req->host));
+        if (code != HTTP_OK) goto out_cleanup_req_return_err;
+
         // Parse the "Connection" header
         code = parse_http_header(rbuf, "Connection", &(req->conn));
         if (code != HTTP_OK) goto out_cleanup_req_return_err;
@@ -180,23 +230,8 @@ enum http_code parse_http_request(const char* const rbuf,
         if (code != HTTP_OK) goto out_cleanup_req_return_err;
 
         // Parse the "Content-Length" header
-        char* content_len = NULL;
-        code = parse_http_header(rbuf, "Content-Length", &content_len);
+        code = parse_http_content_length(rbuf, &(req->clen));
         if (code != HTTP_OK) goto out_cleanup_req_return_err;
-
-        if (content_len) {
-                char* end = NULL;
-                int len = strtol(content_len, &end, 10);
-
-                char endval = *end;
-                free(content_len);
-
-                if (endval != '\0' || len < 0) {
-                        code = HTTP_BAD_REQUEST;
-                        goto out_cleanup_req_return_err;
-                }
-                req->clen = (size_t) len;
-        }
 
         // Parse the content
         code = parse_http_content(rbuf, &(req->content), req->clen);
@@ -205,6 +240,25 @@ enum http_code parse_http_request(const char* const rbuf,
         return HTTP_OK;
 
 out_cleanup_req_return_err:
-        free_http_request(req);
+        cleanup_http_request(req);
+        return code;
+}
+
+
+enum http_code validate_http_1_1_request(char* rbuf)
+{
+        struct http_request req = { 0 };
+        int code = parse_http_request(rbuf, &req);
+        if (code != HTTP_OK) goto out_cleanup_req;
+
+        // Method, URL, version are not NULL
+        if (!req.host || strcmp(req.http_ver, "HTTP/1.1")) {
+                return HTTP_BAD_REQUEST;
+        }
+
+        // TODO: check the structure
+
+out_cleanup_req:
+        cleanup_http_request(&req);
         return code;
 }
