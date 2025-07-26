@@ -6,8 +6,6 @@
 
 
 #include "../headers/tcp_socks.h"
-#include <stdlib.h>
-#include <unistd.h>
 
 
 void initialize_strinfo(struct strinfo* strinf)
@@ -32,6 +30,7 @@ void cleanup_strinfo(struct strinfo* strinf)
 void initialize_clientinfo(struct clientinfo* cinfo)
 {
         cinfo->client = INVALID_SOCKET;
+        cinfo->state = CS_IDLE;
         initialize_strinfo(&(cinfo->sdstr));
         initialize_strinfo(&(cinfo->rvstr));
 }
@@ -43,6 +42,7 @@ void cleanup_clientinfo(struct clientinfo* cinfo)
         if (validate_socket(cinfo->client)) {
                 int cs_res = closesocket(cinfo->client);
                 cinfo->client = INVALID_SOCKET;
+                cinfo->state = CS_IDLE;
                 if (cs_res) {
                         psockerror("close() failed");
                 }
@@ -82,7 +82,7 @@ void cleanup_serverinfo(struct serverinfo* sinfo)
 }
 
 
-int receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
+int server_receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
         int (*on_disconnect)(struct serverinfo*, const SOCKET client))
 {
         const SOCKET client = cinfo->client;

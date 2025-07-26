@@ -30,7 +30,7 @@ enum http_code parse_http_header(const char* const req,
 {
         // Move to the start of the header
         char* start = strstr(req, header);
-        if (!start) return HTTP_BAD_REQUEST;
+        if (!start) return HTTP_OK;
 
         // Define header value bounds
         start += strlen(header) + 2; // + ": "

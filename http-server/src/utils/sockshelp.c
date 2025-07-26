@@ -87,7 +87,7 @@ int make_dual_stack(const SOCKET fd)
             return EXIT_FAILURE;
         }
 
-        printf("Server socket was made dual stack");
+        printf("Server socket was made dual stack\n");
         return EXIT_SUCCESS;
 }
 
@@ -130,6 +130,6 @@ SOCKET start_server(struct addrinfo* addr, const int max_conn)
                 }
         }
 
-        printf("Server was started");
+        printf("Server was started\n");
         return serv;
 }
