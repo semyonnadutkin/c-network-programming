@@ -1,10 +1,11 @@
 # Simple HTTP Web Server
 
-## Important Notice
-The project is under active development. Therefore, it may contain bugs, memory leaks, and lack functionality. As soon as the project is finished, the note will be removed. **However**, files in **_headers_** and **_utils_** directories can already be used in your own applications.
-
 ## About
 Simple HTTP 1.1 web server. Responses to **GET** requests and serves a resource from **_public_** directory
+
+## Current Issues
+- Overall request structure is not validated
+- All methods are interpreted as **GET** method
 
 ## For Developers
 It is suggested that you take needed pieces of code from files in **_headers_** and **_utils_** directories for your own network projects
@@ -55,6 +56,7 @@ gcc -Wall -Wextra -O2                   \
     src/utils/http_parsers.c            \
     src/utils/http_writers.c            \
     src/utils/http_routers.c            \
+    src/utils/path_checkers.c           \
     -Isrc/headers                       \
     -o http_server
 ```
@@ -64,4 +66,4 @@ gcc -Wall -Wextra -O2                   \
 ```
 
 ## Licence
-The project is protected under **MIT licence**
+[CCO 1.0 Universal](https://github.com/semyonnadutkin/c-network-programming/blob/main/LICENCE.md) licence is applied to the project. The code is dedicated to the public domain and you may use it freely without copyright notice

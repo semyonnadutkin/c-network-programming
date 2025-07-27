@@ -8,4 +8,4 @@ This repository replaces the previous one, introducing enhanced code quality and
 Previous repository files are stored locally and can be accessed upon [request](https://t.me/dsu_enjoyer)
 
 ## Licence
-[CCO 1.0 Universal](https://github.com/semyonnadutkin/c-network-programming/blob/main/LICENCE.md) licence is applied for all projects in this repository
+[CCO 1.0 Universal](https://github.com/semyonnadutkin/c-network-programming/blob/main/LICENCE.md) licence is applied to all projects in this repository
