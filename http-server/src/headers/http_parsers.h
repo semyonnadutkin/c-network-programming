@@ -12,18 +12,10 @@
 #pragma once
 
 
-#include "tcp_socks.h"
 #include <stdlib.h>
 #include <string.h>
-
-
-// HTTP status code
-enum http_code {
-        HTTP_INTERNAL_SERVER_ERROR = 500,
-        HTTP_NOT_FOUND = 404,
-        HTTP_BAD_REQUEST = 400,
-        HTTP_OK = 200
-};
+#include "tcp_socks.h"
+#include "http_codes.h"
 
 
 /*

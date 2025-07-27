@@ -1,10 +1,3 @@
-/*
- * File: http_parsers.c
- * Author: Semyon Nadutkin
- * Copyright (C) 2025 Semyon Nadutkin
- */
-
-
 #include "../headers/http_parsers.h"
 
 

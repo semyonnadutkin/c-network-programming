@@ -1,10 +1,3 @@
-/*
- * File: sockshelp.c
- * Author: Semyon Nadutkin
- * Copyright (C) 2025 Semyon Nadutkin
- */
-
-
 #include "../headers/sockshelp.h"
 
 
@@ -104,6 +97,11 @@ SOCKET start_server(struct addrinfo* addr, const int max_conn)
 
         if (make_dual_stack(serv)) {
                 fprintf(stderr, "Failed to make dual stack\n");
+        }
+
+        int opt = 1;
+        if (setsockopt(serv, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+                psockerror("setsockopt() failed");
         }
 
         // Bind the socket to the provided address

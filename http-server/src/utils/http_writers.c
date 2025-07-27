@@ -87,3 +87,18 @@ int write_http_response(struct strinfo* sstr,
 
         return EXIT_SUCCESS;
 }
+
+int write_http_from_code(const enum http_code code, struct strinfo* sstr,
+        const char* content_type, const char* content,
+        const char* connection)
+{
+        const char* conn_header = "Connection: close";
+
+        if (connection && !strcmp(connection, "keep-alive")) {
+                conn_header = "Connection: keep-alive";
+        }
+
+        return write_http_response(sstr, http_code_to_str_1_1(code),
+                content_type, content,
+                1, conn_header);
+}

@@ -1,10 +1,3 @@
-/*
- * File: tcp_socks.c
- * Author: Semyon Nadutkin
- * Copyright (C) 2025 Semyon Nadutkin
- */
-
-
 #include "../headers/tcp_socks.h"
 
 
@@ -158,7 +151,7 @@ int drop_client(struct serverinfo* sinfo, const SOCKET client)
         for (size_t i = 0; i < MAX_CONN; ++i) {
                 if (sinfo->clients[i].client == client) {
                         cleanup_clientinfo(&(sinfo->clients[i]));
-                        printf("Client was dropped");
+                        printf("Client was dropped\n");
                         return EXIT_SUCCESS;
                 }
         }

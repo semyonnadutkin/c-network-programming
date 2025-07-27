@@ -17,6 +17,7 @@
 #include <stdarg.h>     // va_list, va_arg(), ...
 #include <stdlib.h>     // EXIT_SUCCESS, EXIT_FAILURE
 #include "tcp_socks.h"  // struct strinfo
+#include "http_codes.h" // http_code_to_str_1_1()
 
 
 // HTTP response size calculator for write_http_response() function
@@ -51,3 +52,9 @@ int write_http_response(struct strinfo* sstr,
         const char* content,
         const size_t argc,
         ...);
+
+
+// Writes a HTTP response from status code
+int write_http_from_code(const enum http_code code, struct strinfo* sstr,
+        const char* content_type, const char* content,
+        const char* connection);
