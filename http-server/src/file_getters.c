@@ -40,8 +40,15 @@ int read_file(FILE* f, char** rbuf)
 // Gets 404 page contents
 char* get_404_page(void)
 {
-        
-        return NULL;
+        const char* path = "public/frontend/templates/not_found.html";
+        FILE* f = fopen(path, "rb");
+        if (!f) return NULL;
+
+        char* content = NULL;
+        read_file(f, &content);
+
+        fclose(f);
+        return content;
 }
 
 
@@ -49,9 +56,9 @@ char* get_404_page(void)
 int write_404_page(struct strinfo* dest)
 {
         char* page404 = get_404_page();
-        char* ctype = (page404 ? "text/html; charset=UTF-8" : NULL);
+        char* ctype = (page404 ? "text/html" : NULL);
         int w404_res = write_http_from_code(HTTP_NOT_FOUND, dest,
-                page404, ctype, NULL);
+                ctype, page404, NULL);
         if (page404) free(page404);
         if (w404_res) return EXIT_FAILURE;
 
@@ -62,17 +69,18 @@ int write_404_page(struct strinfo* dest)
 /*
 * Gets the resource and writes the response
  *
- * @dest Send string (struct strinfo*)
- * @...  Client's HTTP request (optional)
+ * @dest        Send string (struct strinfo*)
+ * @path        Path to the resource
+ * @prefix      Required path prefix (optional)
+ * @req         Client's HTTP request (optional)
  * 
  * Returns:
  *      - Success: EXIT_SUCCESS
  *      - Failure: EXIT_FAILURE
  */
-int process_default_resource_request(void* dest, const char* path,
-    struct http_request* req)
+int process_default_resource_request(void* dest,
+        const char* path, const char* prefix, struct http_request* req)
 {
-        const char* prefix = "public/"; // required prefix
         if (check_path(path, prefix, 0)) { // write 404
                 return write_404_page(dest);
         }
@@ -122,5 +130,5 @@ int get_front_page(void* dest, const size_t argc, ...)
         }
 
         const char* path = "public/frontend/templates/index.html";
-        return process_default_resource_request(dest, path, req);
+        return process_default_resource_request(dest, path, NULL, req);
 }

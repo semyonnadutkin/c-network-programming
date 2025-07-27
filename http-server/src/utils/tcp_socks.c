@@ -105,7 +105,6 @@ int server_receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
                 return EXIT_SUCCESS;
         }
 
-        printf("Received %d BYTES\n", recvd);
         cinfo->rvstr.len += (size_t) recvd;
         cinfo->rvstr.buf[cinfo->rvstr.len] = '\0';
 
@@ -179,6 +178,45 @@ void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res)
 }
 
 
+void sinfo_to_read_fds(const struct serverinfo* sinfo, fd_set* res)
+{
+        // Initialize, set the server fd
+        FD_ZERO(res);
+        FD_SET(sinfo->serv, res);
+
+        // Set the clients
+        for (size_t i = 0; i < MAX_CONN; ++i) {
+                const struct clientinfo* cinfo = &(sinfo->clients[i]);
+                if (cinfo->state != CS_IDLE && cinfo->state != CS_RECEIVING) {
+                        continue; // busy with another operation
+                }
+
+                if (validate_socket(cinfo->client)) {
+                        FD_SET(cinfo->client, res);
+                }
+        }
+}
+
+
+void sinfo_to_write_fds(const struct serverinfo* sinfo, fd_set* res)
+{
+        // Initialize the set
+        FD_ZERO(res);
+
+        // Set the clients
+        for (size_t i = 0; i < MAX_CONN; ++i) {
+                const struct clientinfo* cinfo = &(sinfo->clients[i]);
+                if (cinfo->state != CS_READY && cinfo->state != CS_SENDING) {
+                        continue; // busy with another operation
+                }
+
+                if (validate_socket(cinfo->client)) {
+                        FD_SET(cinfo->client, res);
+                }
+        }
+}
+
+
 void server_handle_clients(struct serverinfo* sinfo,
         const fd_set readfds,
         const fd_set writefds,
@@ -221,13 +259,11 @@ int server_check_fds(struct serverinfo* sinfo,
         void (*on_read_set)(struct serverinfo* sinfo, const SOCKET client),
         void (*on_write_set)(struct serverinfo* sinfo, const SOCKET client))
 {
-        // Configure master fd set
-        fd_set master = { 0 };
-        sinfo_to_fd_set(sinfo, &master);
-
         // Select the fds ready for a read / write operation
-        fd_set readfds = master;
-        fd_set writefds = master;
+        fd_set readfds = { 0 };
+        sinfo_to_read_fds(sinfo, &readfds);
+        fd_set writefds = { 0 };
+        sinfo_to_write_fds(sinfo, &writefds);
 
         int slct_res = select(sinfo->max_fd + 1,
                 &readfds, &writefds, NULL, NULL);

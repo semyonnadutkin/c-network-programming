@@ -1,0 +1,17 @@
+body {
+    font-family: Arial, sans-serif;
+    font-size: clamp(14px, 2vmin, 100px);
+
+    text-align: center;
+}
+
+h1 {
+    font-weight: bolder;
+    color: rgba(45, 45, 45, 200);
+    transition: 1s;
+}
+
+h1:hover {
+    color: rgba(220, 20, 60, 200);
+    transition: 1s;
+}

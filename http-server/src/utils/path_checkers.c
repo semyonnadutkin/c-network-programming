@@ -18,7 +18,10 @@ int check_path(const char* path, const char* prefix, const int max_ups)
 {
         // Check the prefix
         if (prefix) {
-                if (strncmp(path, prefix, strlen(prefix))) {
+                size_t prefix_len = strlen(prefix);
+                size_t path_len = strlen(path);
+                size_t n = (prefix_len < path_len ? prefix_len : path_len);
+                if (strncmp(path, prefix, n) != 0) {
                         return EXIT_FAILURE;
                 }
         }

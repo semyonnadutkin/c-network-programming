@@ -42,7 +42,7 @@ int execute_http_request(struct http_request* req,
         struct http_route* rt = get_http_route(req->url);
         if (!rt) {
                 int def_res = process_default_resource_request(respstr,
-                        req->url, req);
+                        req->url + 1, "public/", req);
                 if (def_res) {
                         cleanup_http_request(req);
                         return write_http_from_code(HTTP_NOT_FOUND, respstr,
@@ -86,7 +86,7 @@ int process_http_request(struct clientinfo* cinfo)
                 /* TODO: Write the error message */
 
 
-                cinfo->state = CS_IDLE;
+                cinfo->state = CS_READY;
                 return parse_res;
         }
 
@@ -99,7 +99,7 @@ int process_http_request(struct clientinfo* cinfo)
 
         // Move to a new request
         move_http_request(&(cinfo->rvstr), req.clen);
-        cinfo->state = CS_IDLE;
+        cinfo->state = CS_READY;
 
         return exec_res;
 }
@@ -126,8 +126,6 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
                         return;
                 }
 
-                printf("\n\n\n\nReceived:\n %s\n\n\n\n", cinfo->rvstr.buf);
-
                 // Check if the request was fully scanned
                 int req_status = http_request_read_status(cinfo->rvstr.buf);
                 if (req_status == HTTP_OK) {
@@ -145,7 +143,7 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
                         if (whfc_res) {
                                 fprintf(stderr, "Failed to send 400\n");
                         } else {
-                                cinfo->state = CS_IDLE;
+                                cinfo->state = CS_READY;
                         }
                 }
 
@@ -166,7 +164,7 @@ void send_http_response(struct serverinfo* sinfo, const SOCKET client)
                 if (!cinfo->sdstr.buf) return; // nothing to send
 
                 // Set the state to "SENDING"
-                if (cinfo->state == CS_IDLE) {
+                if (cinfo->state == CS_READY) {
                         cinfo->state = CS_SENDING;
                 } else {
                         return; // wait for another operation

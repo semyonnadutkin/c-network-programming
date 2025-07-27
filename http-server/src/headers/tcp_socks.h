@@ -156,6 +156,16 @@ void server_handle_clients(struct serverinfo* sinfo,
 void sinfo_to_fd_set(const struct serverinfo* sinfo, fd_set* res);
 
 
+// Sets only the server and clients which are idle
+// or from which input is being handled
+void sinfo_to_read_fds(const struct serverinfo* sinfo, fd_set* res);
+
+
+// Sets only the clients which are ready for response
+// or to which input is being sent
+void sinfo_to_write_fds(const struct serverinfo* sinfo, fd_set* res);
+
+
 // Updates max fd value for select() call
 void update_max_fd(struct serverinfo* sinfo);
 
