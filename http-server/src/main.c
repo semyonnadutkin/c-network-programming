@@ -4,96 +4,10 @@
 #include "headers/http_routers.h"
 #include "headers/tcp_socks.h"
 #include "headers/http_writers.h"
+#include "file_getters.c"
 
 #include <stdio.h>      // fprintf(), ...
 #include <stdlib.h>     // EXIT_SUCCESS / EXIT_FAILURE
-
-
-/*
- * Reads the file to rbuf
- *
- * Returns:
- *      - Success: EXIT_SUCCESS
- *      - Failure: EXIT_FAILURE
- */
-int read_file(FILE* f, char** rbuf)
-{
-        // Calculate the file size
-        if (fseek(f, 0, SEEK_END)) return EXIT_FAILURE;
-
-        long sz = ftell(f);
-        if (sz < 0) EXIT_FAILURE;
-
-        if (fseek(f, 0, SEEK_SET)) return EXIT_FAILURE;
-
-        // Read the contents
-        *rbuf = (char*) calloc((size_t) sz + 1, sizeof(char)); // + '\0'
-        if (!*rbuf) return EXIT_FAILURE;
-
-        unsigned long read = fread(*rbuf, sizeof(char), sz, f);
-        if (read != (size_t) sz) {
-                free(*rbuf);
-                return EXIT_FAILURE;
-        }
-
-        return EXIT_SUCCESS;
-}
-
-
-// Gets 404 page contents
-char* get_404_page(void)
-{
-        return NULL;
-}
-
-
-// Writes 404 response with a page
-int write_404_page(struct strinfo* dest)
-{
-        char* page404 = get_404_page();
-        char* ctype = (page404 ? "text/html; charset=UTF-8" : NULL);
-        int w404_res = write_http_from_code(HTTP_NOT_FOUND, dest,
-                page404, ctype, NULL);
-        if (page404) free(page404);
-        if (w404_res) return EXIT_FAILURE;
-
-        return EXIT_SUCCESS;
-}
-
-
-/*
- * Gets the front page and writes the response
- *
- * @dest Send string (struct strinfo*)
- * 
- * Returns:
- *      - Success: EXIT_SUCCESS
- *      - Failure: EXIT_FAILURE
- */
-int get_front_page(void* dest, ...)
-{
-        // TODO: accept HTTP request as an argument
-
-        const char* path = "public/frontend/templates/index.html";
-        FILE* f = fopen(path, "rb");
-        if (!f) return write_404_page(dest);
-
-        // Read the file
-        char* rbuf = NULL;
-        int rf_res = read_file(f, &rbuf);
-        fclose(f);
-        if (rf_res) goto out_write_500;
-
-        // Write the response
-        int w200_res = write_http_from_code(HTTP_OK, dest,
-                "text/html; charset=UTF-8", rbuf, NULL);
-        free(rbuf);
-        return w200_res;
-
-out_write_500:
-        return write_http_from_code(HTTP_INTERNAL_SERVER_ERROR, dest,
-                NULL, NULL, NULL);
-}
 
 
 // Sets the used routes
@@ -120,28 +34,33 @@ void set_routes(void)
  *      - Failure: EXIT_FAILURE
  */
 int execute_http_request(struct http_request* req,
-        struct strinfo* respstr)
+        struct clientinfo* cinfo)
 {
-        /* TODO: Implement the function */
+        struct strinfo* respstr = &(cinfo->sdstr);
 
         // Get the needed HTTP route structure
         struct http_route* rt = get_http_route(req->url);
         if (!rt) {
-                return write_http_from_code(HTTP_NOT_FOUND, respstr,
-                        NULL, NULL, NULL);
+                int def_res = process_default_resource_request(respstr,
+                        req->url, req);
+                if (def_res) {
+                        cleanup_http_request(req);
+                        return write_http_from_code(HTTP_NOT_FOUND, respstr,
+                                NULL, NULL, "close");
+                }
+
+                cleanup_http_request(req);
+                cinfo->add_data = req->conn;
+                return EXIT_SUCCESS;
         }
 
         // Handle the request
-        rt->handler(respstr);
-
-        // int whr_res = write_http_response(respstr, "HTTP/1.1 200 OK",
-        //         "text/plain", "Hello World!",
-        //         1, "Connection: close");
-        // if (whr_res) return -EXIT_FAILURE;
+        int hres = rt->handler(respstr, 1, req);
+        cinfo->add_data = req->conn;
 
         // Cleanup the request
         cleanup_http_request(req);
-        return EXIT_SUCCESS;
+        return hres;
 }
 
 
@@ -166,12 +85,13 @@ int process_http_request(struct clientinfo* cinfo)
 
                 /* TODO: Write the error message */
 
+
                 cinfo->state = CS_IDLE;
                 return parse_res;
         }
 
         // Write the execution result to send string
-        int exec_res = execute_http_request(&req, &(cinfo->sdstr));
+        int exec_res = execute_http_request(&req, cinfo);
         if (exec_res < 0) {
                 fprintf(stderr, "Failed to execute HTTP request\n");
                 return exec_res;
@@ -206,19 +126,27 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
                         return;
                 }
 
+                printf("\n\n\n\nReceived:\n %s\n\n\n\n", cinfo->rvstr.buf);
+
                 // Check if the request was fully scanned
                 int req_status = http_request_read_status(cinfo->rvstr.buf);
                 if (req_status == HTTP_OK) {
                         printf("\nReceived request (%zu bytes)\n%s\n",
                                 cinfo->rvstr.len, cinfo->rvstr.buf);
 
+                        cinfo->rvstr.len = 0;
                         if (process_http_request(cinfo) < 0) { // error
                                 fprintf(stderr, "process_request() failed\n");
                         }
                 } else if (req_status == HTTP_BAD_REQUEST) {
-                        // TODO: write 400
-
-                        cinfo->state = CS_IDLE;
+                        cinfo->rvstr.len = 0;
+                        int whfc_res = write_http_from_code(HTTP_BAD_REQUEST,
+                                &(cinfo->sdstr), NULL, NULL, NULL);
+                        if (whfc_res) {
+                                fprintf(stderr, "Failed to send 400\n");
+                        } else {
+                                cinfo->state = CS_IDLE;
+                        }
                 }
 
                 return;
@@ -257,6 +185,14 @@ void send_http_response(struct serverinfo* sinfo, const SOCKET client)
                                 sdstr->len, sdstr->buf);
                         cleanup_strinfo(sdstr); // -> optional <- cleanup
                         cinfo->state = CS_IDLE;
+
+                        // Check the connection
+                        if (cinfo->add_data
+                                && !strcmp(cinfo->add_data, "close")) {
+                                if (drop_client(sinfo, cinfo->client)) { // bug
+                                        pfatal("drop_client() failed\n");
+                                }
+                        }
                 }
 
                 return;

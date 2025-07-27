@@ -24,6 +24,7 @@ void initialize_clientinfo(struct clientinfo* cinfo)
 {
         cinfo->client = INVALID_SOCKET;
         cinfo->state = CS_IDLE;
+        cinfo->add_data = NULL;
         initialize_strinfo(&(cinfo->sdstr));
         initialize_strinfo(&(cinfo->rvstr));
 }
@@ -36,6 +37,7 @@ void cleanup_clientinfo(struct clientinfo* cinfo)
                 int cs_res = closesocket(cinfo->client);
                 cinfo->client = INVALID_SOCKET;
                 cinfo->state = CS_IDLE;
+                cinfo->add_data = NULL;
                 if (cs_res) {
                         psockerror("close() failed");
                 }
@@ -103,6 +105,7 @@ int server_receive_request(struct serverinfo* sinfo, struct clientinfo* cinfo,
                 return EXIT_SUCCESS;
         }
 
+        printf("Received %d BYTES\n", recvd);
         cinfo->rvstr.len += (size_t) recvd;
         cinfo->rvstr.buf[cinfo->rvstr.len] = '\0';
 

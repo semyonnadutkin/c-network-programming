@@ -53,10 +53,11 @@ struct strinfo {
 /*
  * Info about a TCP client
  *
- * @client Client's fd
- * @state  State of the client
- * @sdstr  Client's request
- * @rvstr  Response to the client
+ * @client      Client's fd
+ * @state       State of the client
+ * @sdstr       Client's request
+ * @rvstr       Response to the client
+ * @add_data    Additional data
  */
 struct clientinfo {
         SOCKET client;
@@ -64,6 +65,8 @@ struct clientinfo {
 
         struct strinfo sdstr;
         struct strinfo rvstr;
+
+        void* add_data;
 };
 
 

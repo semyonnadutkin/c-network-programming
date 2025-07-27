@@ -12,7 +12,7 @@
  */
 struct http_route {
         const char* route;
-        int (*handler)(void*, ...);
+        int (*handler)(void*, const size_t argc, ...);
 };
 
 
