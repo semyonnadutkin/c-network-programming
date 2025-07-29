@@ -2,7 +2,31 @@
 <head>
     <meta charset="UTF-8">
     <title>Not Found</title>
-    <link rel="stylesheet" href="public/frontend/style/not_found_style.css">
+    <style>
+        @font-face {
+            font-family: 'Josefin-Sans-bold';
+            src: url('/public/frontend/fonts/josefin-sans.bold.ttf');
+        }
+
+        body {
+            font-family: 'Josefin-Sans-bold', sans-serif;
+            font-size: clamp(14px, 2vmin, 100px);
+
+            text-align: center;
+            padding-top: 30vh;
+        }
+
+        h1 {
+            font-weight: bolder;
+            color: rgba(45, 45, 45, 200);
+            transition: 1s;
+        }
+
+        h1:hover {
+            color: rgba(220, 20, 60, 200);
+            transition: 1s;
+        }
+    </style>
 </head>
 <body>
     <h1> Page Not Found </h1>

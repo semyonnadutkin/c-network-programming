@@ -13,16 +13,14 @@
 // Sets the used routes
 void set_routes(void)
 {
-        // TODO: extend the function
-
+        // Set the route for the front page
         struct http_route fpage = {
+                .method = "GET",
                 .route = "/",
                 .handler = get_front_page
         };
 
-        if (set_http_route(fpage)) {
-                pfatal("setup_routes() failed\n");
-        }
+        if (set_http_route(fpage)) pfatal("setup_routes() failed\n");
 }
 
 
@@ -39,14 +37,14 @@ int execute_http_request(struct http_request* req,
         struct strinfo* respstr = &(cinfo->sdstr);
 
         // Get the needed HTTP route structure
-        struct http_route* rt = get_http_route(req->url);
+        struct http_route* rt = get_http_route(req->method, req->url);
         if (!rt) {
+                // Move the start of the URL to "public/" (for simplicity)
                 int def_res = process_default_resource_request(respstr,
-                        req->url + 1, "public/", req);
+                        strstr(req->url, "public/"), NULL, req);
                 if (def_res) {
                         cleanup_http_request(req);
-                        return write_http_from_code(HTTP_NOT_FOUND, respstr,
-                                NULL, NULL, "close");
+                        return write_404_page(respstr);
                 }
 
                 cleanup_http_request(req);
@@ -139,7 +137,7 @@ void handle_http_input(struct serverinfo* sinfo, const SOCKET client)
                 } else if (req_status == HTTP_BAD_REQUEST) {
                         cinfo->rvstr.len = 0;
                         int whfc_res = write_http_from_code(HTTP_BAD_REQUEST,
-                                &(cinfo->sdstr), NULL, NULL, NULL);
+                                &(cinfo->sdstr), NULL, 0, NULL, NULL);
                         if (whfc_res) {
                                 fprintf(stderr, "Failed to send 400\n");
                         } else {

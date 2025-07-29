@@ -1,4 +1,5 @@
 #include "../headers/path_checkers.h"
+#include <stdlib.h>
 
 
 void make_path_cross_platform(char* const cur_path) {
@@ -85,6 +86,8 @@ const char* path_to_content_type(const char* const path)
         else if (!strcmp(last_dot, ".jpg")) ext = "image/jpeg";
         else if (!strcmp(last_dot, ".ico")) ext = "image/vnd.microsoft.icon";
         else if (!strcmp(last_dot, ".svg")) ext = "image/svg+xml";
+        // Fonts
+        else if (!strcmp(last_dot, ".ttf")) ext = "application/x-font-ttf";
 
         return ext;
 }

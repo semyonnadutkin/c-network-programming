@@ -53,13 +53,14 @@ int set_http_route(struct http_route rt)
 }
 
 
-struct http_route* get_http_route(const char* route)
+struct http_route* get_http_route(const char* method, const char* route)
 {
         struct http_rts_list* router = get_http_router();
 
         struct http_rts_lnode* cur = router->head;
         while (cur) {
-                if (!strcmp(cur->rt.route, route)) return &(cur->rt);
+                if (!strcmp(cur->rt.method, method)
+                        && !strcmp(cur->rt.route, route)) return &(cur->rt);
                 cur = cur->next;
         }
 

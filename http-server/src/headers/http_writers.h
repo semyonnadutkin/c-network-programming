@@ -23,6 +23,7 @@
 // HTTP response size calculator for write_http_response() function
 size_t calculate_http_response_size(const char* response,
         const char* content_type,
+        const size_t content_len,
         const char* content,
         const size_t argc,
         va_list args);
@@ -49,6 +50,7 @@ size_t calculate_http_response_size(const char* response,
 int write_http_response(struct strinfo* sstr,
         const char* response,
         const char* content_type,
+        const size_t content_len,
         const char* content,
         const size_t argc,
         ...);
@@ -56,5 +58,5 @@ int write_http_response(struct strinfo* sstr,
 
 // Writes a HTTP response from status code
 int write_http_from_code(const enum http_code code, struct strinfo* sstr,
-        const char* content_type, const char* content,
-        const char* connection);
+        const char* content_type, const size_t content_len,
+        const char* content, const char* connection);

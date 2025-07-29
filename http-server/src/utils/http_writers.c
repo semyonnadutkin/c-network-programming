@@ -3,6 +3,7 @@
 
 size_t calculate_http_response_size(const char* response,
         const char* content_type,
+        const size_t content_len,
         const char* content,
         const size_t argc,
         va_list args)
@@ -12,8 +13,6 @@ size_t calculate_http_response_size(const char* response,
 
         int count_contents = (content_type != NULL && content != NULL);
         if (count_contents) {
-                size_t content_len = (size_t) strlen(content);
-
                 total_sz += strlen("Content-Type: ")
                 + strlen(content_type) + 2;
 
@@ -41,6 +40,7 @@ size_t calculate_http_response_size(const char* response,
 int write_http_response(struct strinfo* sstr,
         const char* response,
         const char* content_type,
+        const size_t content_len,
         const char* content,
         const size_t argc,
         ...)
@@ -49,7 +49,7 @@ int write_http_response(struct strinfo* sstr,
         va_list args = { 0 };
         va_start(args, argc);
         size_t total_sz = calculate_http_response_size(response,
-                content_type, content, argc, args);
+                content_type, content_len, content, argc, args);
 
         // Allocate the memory
         if (sstr->buf) {
@@ -70,7 +70,7 @@ int write_http_response(struct strinfo* sstr,
                 cur += sprintf(cur,
                         "Content-Type: %s\r\n"
                         "Content-Length: %zu\r\n",
-                        content_type, (size_t) strlen(content));
+                        content_type, content_len);
         }
 
         // Write the additional headers
@@ -89,8 +89,8 @@ int write_http_response(struct strinfo* sstr,
 }
 
 int write_http_from_code(const enum http_code code, struct strinfo* sstr,
-        const char* content_type, const char* content,
-        const char* connection)
+        const char* content_type, const size_t content_len,
+        const char* content, const char* connection)
 {
         const char* conn_header = "Connection: close";
 
@@ -99,6 +99,6 @@ int write_http_from_code(const enum http_code code, struct strinfo* sstr,
         }
 
         return write_http_response(sstr, http_code_to_str_1_1(code),
-                content_type, content,
+                content_type, content_len, content,
                 1, conn_header);
 }

@@ -1,11 +1,7 @@
 # Simple HTTP Web Server
 
 ## About
-Simple HTTP 1.1 web server. Responses to **GET** requests and serves a resource from **_public_** directory
-
-## Current Issues
-- Overall request structure is not validated
-- All methods are interpreted as **GET** method
+Simple HTTP 1.1 web server. Serves resources from **_public_** directory
 
 ## For Developers
 It is suggested that you take needed pieces of code from files in **_headers_** and **_utils_** directories for your own network projects

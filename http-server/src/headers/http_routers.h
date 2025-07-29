@@ -11,6 +11,7 @@
  * @path  Related handler function
  */
 struct http_route {
+        const char* method;
         const char* route;
         int (*handler)(void*, const size_t argc, ...);
 };
@@ -58,4 +59,4 @@ int set_http_route(struct http_route rt);
 
 
 // Gets HTTP route
-struct http_route* get_http_route(const char* route);
+struct http_route* get_http_route(const char* method, const char* route);

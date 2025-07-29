@@ -1,5 +1,11 @@
-body {
-    font-family: Arial, Helvetica, sans-serif;
-    text-align: center;
+@font-face {
+    font-family: 'Josefin-Sans-bold';
+    src: url('/public/frontend/fonts/josefin-sans.bold.ttf');
 }
 
+body {
+    font-family: 'Josefin-Sans-bold', sans-serif;
+    text-align: center;
+
+    padding-top: 20vh;
+}

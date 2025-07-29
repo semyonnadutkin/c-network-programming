@@ -1,6 +1,7 @@
 #include <stdio.h>                  // making logs
 #include <stdlib.h>                 // memory management
 #include <stdarg.h>
+#include <string.h>
 #include "headers/http_parsers.h"
 #include "headers/http_writers.h"   // write_http_from_code(), ...
 #include "headers/path_checkers.h"
@@ -10,59 +11,74 @@
  * Reads the file to rbuf
  *
  * Returns:
- *      - Success: EXIT_SUCCESS
- *      - Failure: EXIT_FAILURE
+ *      - Success: Number of bytes read
+ *      - Failure: -EXIT_FAILURE
  */
 int read_file(FILE* f, char** rbuf)
 {
         // Calculate the file size
-        if (fseek(f, 0, SEEK_END)) return EXIT_FAILURE;
+        if (fseek(f, 0, SEEK_END)) return -EXIT_FAILURE;
 
         long sz = ftell(f);
-        if (sz < 0) EXIT_FAILURE;
+        if (sz < 0) return -EXIT_FAILURE;
 
-        if (fseek(f, 0, SEEK_SET)) return EXIT_FAILURE;
+        if (fseek(f, 0, SEEK_SET)) return -EXIT_FAILURE;
 
         // Read the contents
-        *rbuf = (char*) calloc((size_t) sz + 1, sizeof(char)); // + '\0'
-        if (!*rbuf) return EXIT_FAILURE;
+        *rbuf = (char*) calloc((size_t) sz + 1, sizeof(char));
+        if (!*rbuf) return -EXIT_FAILURE;
 
         unsigned long read = fread(*rbuf, sizeof(char), sz, f);
         if (read != (size_t) sz) {
                 free(*rbuf);
-                return EXIT_FAILURE;
+                return -EXIT_FAILURE;
         }
 
-        return EXIT_SUCCESS;
+        return read;
 }
 
 
-// Gets 404 page contents
-char* get_404_page(void)
+/*
+ * Gets page 404 contents
+ *
+ * Returns: Number of bytes read
+ */
+size_t get_404_page(char** page)
 {
         const char* path = "public/frontend/templates/not_found.html";
         FILE* f = fopen(path, "rb");
-        if (!f) return NULL;
+        if (!f) return 0;
 
-        char* content = NULL;
-        read_file(f, &content);
+        int read = read_file(f, page);
 
         fclose(f);
-        return content;
+        return read == -EXIT_FAILURE ? 0 : read;
 }
 
 
 // Writes 404 response with a page
 int write_404_page(struct strinfo* dest)
 {
-        char* page404 = get_404_page();
+        char* page404 = NULL;
+        size_t read = get_404_page(&page404);
         char* ctype = (page404 ? "text/html" : NULL);
         int w404_res = write_http_from_code(HTTP_NOT_FOUND, dest,
-                ctype, page404, NULL);
+                ctype, read, page404, "close");
         if (page404) free(page404);
         if (w404_res) return EXIT_FAILURE;
 
         return EXIT_SUCCESS;
+}
+
+
+// Writes 505 respose with a short plain text description
+int write_500_page(struct strinfo* dest)
+{
+        const char* const content = "Internal Server Error";
+        const size_t content_len = strlen(content);
+
+        return write_http_from_code(HTTP_INTERNAL_SERVER_ERROR, dest,
+                "text/plain", content_len, content, NULL);
 }
 
 
@@ -79,31 +95,34 @@ int write_404_page(struct strinfo* dest)
  *      - Failure: EXIT_FAILURE
  */
 int process_default_resource_request(void* dest,
-        const char* path, const char* prefix, struct http_request* req)
+        char* path, const char* prefix, struct http_request* req)
 {
-        if (check_path(path, prefix, 0)) { // write 404
+        if (!path || check_path(path, prefix, 0)) { // write 404
                 return write_404_page(dest);
         }
 
+        // Check if the target is a file
+        if (!strchr(path, '.')) return write_404_page(dest);
+
+        make_path_cross_platform(path);
         FILE* f = fopen(path, "rb");
         if (!f) return write_404_page(dest);
 
         // Read the file
         char* rbuf = NULL;
-        int rf_res = read_file(f, &rbuf);
+        int bytes_read = read_file(f, &rbuf);
         fclose(f);
-        if (rf_res) goto out_write_500;
+        if (bytes_read < 0) goto out_write_500;
 
         // Write the response
         const char* connection = (req ? req->conn : "close"); // same as client
         int w200_res = write_http_from_code(HTTP_OK, dest,
-                path_to_content_type(path), rbuf, connection);
+                path_to_content_type(path), bytes_read, rbuf, connection);
         free(rbuf);
         return w200_res;
 
 out_write_500:
-        return write_http_from_code(HTTP_INTERNAL_SERVER_ERROR, dest,
-                NULL, NULL, NULL);
+        return write_500_page(dest);
 }
 
 
@@ -129,6 +148,6 @@ int get_front_page(void* dest, const size_t argc, ...)
                 va_end(args);
         }
 
-        const char* path = "public/frontend/templates/index.html";
+        char* path = "public/frontend/templates/index.html";
         return process_default_resource_request(dest, path, NULL, req);
 }
