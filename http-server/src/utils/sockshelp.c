@@ -27,7 +27,7 @@ int sockets_startup(void)
 
         ret = WSAStartup(ws_ver, &wsd);
         if (ret) {
-                PSOCKERROR("WSAStartup() failed");
+                psockerror("WSAStartup() failed");
         }
 #endif // _WIN32
 
@@ -43,7 +43,7 @@ int sockets_cleanup(void)
 #ifdef _WIN32
         ret = WSACleanup();
         if (ret) { 
-                PSOCKERROR("WSACleanup() failed");
+                psockerror("WSACleanup() failed");
         }
 #endif // _WIN32
 
